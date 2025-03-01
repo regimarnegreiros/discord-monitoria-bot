@@ -1,22 +1,19 @@
 import os
-
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 
 from settings.config import PREFIX
 
-
-# Configuração do bot
+# Carregamento do arquivo .env
 load_dotenv()
 TOKEN = os.getenv('TOKEN')
 
 # Definindo as permissões/intents do bot
 client = commands.Bot(command_prefix=PREFIX, intents=discord.Intents.all())
 
-
-# Função que carrega os comandos presentes na pasta cogs
 async def load_cogs():
+    """Carrega todos os cogs presentes na pasta 'cogs'."""
     for arquivo in os.listdir('cogs'):
         if arquivo.endswith('.py'):
             try:
@@ -24,16 +21,14 @@ async def load_cogs():
             except Exception as e:
                 print(f'Erro ao carregar cog {arquivo}: {e}')
 
-
-# Comando para testar se o bot está respondendo
 @client.hybrid_command(description="Responde o usuário com pong.")
 async def ping(ctx: commands.Context):
+    """Comando que responde 'Pong' ao usuário."""
     await ctx.send("Pong 🏓")
 
-
-# Ao ligar
 @client.event
 async def on_ready():
+    """Evento acionado quando o bot está pronto para usar."""
     await load_cogs()
     await client.tree.sync()
     await client.change_presence(

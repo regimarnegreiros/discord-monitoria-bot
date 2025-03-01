@@ -1,1 +1,0 @@
-await ctx.send("Pong 🏓")
