@@ -4,13 +4,14 @@ from discord.ext import commands
 from dotenv import load_dotenv
 
 from settings.config import PREFIX
+from bot.client_instance import get_client
 
 # Carregamento do arquivo .env
 load_dotenv()
 TOKEN = os.getenv('TOKEN')
 
-# Definindo as permissões/intents do bot
-client = commands.Bot(command_prefix=PREFIX, intents=discord.Intents.all())
+# Obtendo a instancia global de client
+client = get_client()
 
 async def load_cogs():
     """Carrega todos os cogs presentes na pasta 'cogs'."""
