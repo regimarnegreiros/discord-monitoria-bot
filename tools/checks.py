@@ -51,8 +51,9 @@ async def check_archived_thread(forum_channel, thread_id):
     return None
 
 # Função para verificar se o usuário possui a role de admin
-async def check_admin_role(ctx: commands.Context):
-    if ADMIN_ROLE_ID not in [role.id for role in ctx.author.roles]:
-        await ctx.send("Você não tem permissão para usar este comando.")
+async def check_admin_role(interaction: discord.Interaction):
+    user = interaction.user
+    if ADMIN_ROLE_ID not in [role.id for role in user.roles]:
+        await interaction.response.send_message("Você não tem permissão para usar este comando.", ephemeral=True)
         return False
     return True

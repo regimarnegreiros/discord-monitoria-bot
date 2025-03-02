@@ -22,10 +22,10 @@ async def load_cogs():
             except Exception as e:
                 print(f'Erro ao carregar cog {arquivo}: {e}')
 
-@client.hybrid_command(description="Responde o usuário com pong.")
-async def ping(ctx: commands.Context):
-    """Comando que responde 'Pong' ao usuário."""
-    await ctx.send("Pong 🏓")
+@client.tree.command(name="ping", description="Responde o usuário com pong.")
+async def ping(interaction: discord.Interaction):
+    """Comando que responde 'Pong 🏓' ao usuário."""
+    await interaction.response.send_message("Pong 🏓")
 
 @client.event
 async def on_ready():

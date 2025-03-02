@@ -14,19 +14,19 @@ class GetPostsId(commands.Cog):
         self.client = client
         super().__init__()
     
-    @commands.hybrid_command(description="Faz um print no terminal o id de todos os posts do fórum.")
-    async def getpostsid(self, ctx: commands.Context):
+    @app_commands.command(name="posts_id", description="Coleta o id de todos os posts do fórum.")
+    async def getpostsid(self, interaction: discord.Interaction):
         # Verificar se o usuário possui a role de admin
-        if not await check_admin_role(ctx):
+        if not await check_admin_role(interaction):
             return
         
         posts = await get_forum_posts(GUILD_ID, FORUM_CHANNEL_ID)
         posts_quantity = len(posts)
 
         message = f"ID das postagens extraídos com sucesso! \n\n{posts}\n\nQuantidade de posts: {posts_quantity}"
-        
+
         print(message)
-        await ctx.send(message  )
+        await interaction.response.send_message(message)
 
 async def setup(client):
     await client.add_cog(GetPostsId(client))
