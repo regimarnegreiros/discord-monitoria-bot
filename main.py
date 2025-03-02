@@ -7,7 +7,7 @@ from settings.config import PREFIX
 from bot.client_instance import get_client
 
 # Carregamento do arquivo .env
-load_dotenv()
+load_dotenv(dotenv_path='settings/.env')
 TOKEN = os.getenv('TOKEN')
 
 # Obtendo a instancia global de client
