@@ -35,7 +35,7 @@ async def on_ready():
     await client.change_presence(
         status=discord.Status.do_not_disturb, 
         activity=discord.Streaming(
-            name=f"{PREFIX}help", 
+            name=f"/ajuda", 
             url="https://www.youtube.com/watch?v=SECVGN4Bsgg"
         )
     )
