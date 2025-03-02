@@ -4,8 +4,8 @@ from discord.ext import commands
 
 from settings.config import GUILD_ID
 from settings.config import FORUM_CHANNEL_ID
-from settings.config import ADMIN_ROLE_ID
 from forum_functions.get_forum_posts_id import get_forum_posts
+from tools.checks import check_admin_role
 
 class GetPostsId(commands.Cog):
     """Cog que faz um print no terminal o id de todos os posts do fórum."""
@@ -17,8 +17,7 @@ class GetPostsId(commands.Cog):
     @commands.hybrid_command(description="Faz um print no terminal o id de todos os posts do fórum.")
     async def getpostsid(self, ctx: commands.Context):
         # Verificar se o usuário possui a role de admin
-        if ADMIN_ROLE_ID not in [role.id for role in ctx.author.roles]:
-            await ctx.send("Você não tem permissão para usar este comando.")
+        if not await check_admin_role(ctx):
             return
         
         posts = await get_forum_posts(GUILD_ID, FORUM_CHANNEL_ID)

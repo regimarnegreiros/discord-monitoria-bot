@@ -1,19 +1,18 @@
 import discord
 
 from bot.client_instance import get_client
+from tools.checks import check_guild, check_forum_channel
 
 async def get_forum_posts(guild_id: int, forum_id: int):
     """Retorna uma lista com o ID de todas as postagens dentro de um canal de fórum, incluindo arquivadas."""
 
     client = get_client()
-    guild = client.get_guild(guild_id)
+    guild = check_guild(client, guild_id)
     if not guild:
-        print("O bot não está no servidor especificado!")
         return []
 
-    forum_channel = guild.get_channel(forum_id)
-    if not forum_channel or not isinstance(forum_channel, discord.ForumChannel):
-        print("Canal inválido ou não é um fórum.")
+    forum_channel = check_forum_channel(guild, forum_id)
+    if not forum_channel:
         return []
 
     # Obtém as threads ativas
