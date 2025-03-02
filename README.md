@@ -1,5 +1,6 @@
 # Bot para registros da monitoria
 
+O **Registros de Monitoria** é um bot desenvolvido para auxiliar no gerenciamento e análise de estatísticas de monitoria dentro de um servidor do Discord. Ele coleta e organiza dados sobre a participação dos monitores em canais de fórum e gerando um ranking baseado em diversas métricas.
 
 ### Instalação
 
