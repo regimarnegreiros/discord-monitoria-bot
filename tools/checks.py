@@ -29,12 +29,26 @@ def check_forum_channel(guild, forum_id):
     return forum_channel
 
 # Função para verificar se a thread existe no canal
-def check_thread(channel, thread_id):
-    thread = channel.get_thread(thread_id)
+def check_thread(forum_channel, thread_id):
+    thread = forum_channel.get_thread(thread_id)
     if not thread:
         print("Thread não encontrada.")
         return None
     return thread
+
+# Função para verificar se uma thread está arquivada
+async def check_archived_thread(forum_channel, thread_id):
+    # Obtendo todas as threads arquivadas do canal de fórum
+    archived_threads = [thread async for thread in forum_channel.archived_threads(limit=None)]
+    
+    # Procurando pela thread arquivada
+    for archived_thread in archived_threads:
+        if archived_thread.id == thread_id:
+            print(f"Thread arquivada encontrada: {thread_id}")
+            return archived_thread
+
+    print("Thread arquivada não encontrada.")
+    return None
 
 # Função para verificar se o usuário possui a role de admin
 async def check_admin_role(ctx: commands.Context):
