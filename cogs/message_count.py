@@ -3,6 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from forum_functions.count_messages import get_users_message_count_in_thread
+from tools.checks import check_admin_role
 from settings.config import FORUM_CHANNEL_ID, GUILD_ID
 
 class MessageCount(commands.Cog):
@@ -12,6 +13,10 @@ class MessageCount(commands.Cog):
     @app_commands.command(name="contar_mensagens", description="Mostra a quantidade de mensagens de um post.")
     async def message_count(self, interaction: discord.Interaction, thread_id: str):
         """Comando que retorna a quantidade de mensagens de cada usuário em uma thread específica."""
+
+        # Verificar se o usuário possui a role de admin
+        if not await check_admin_role(interaction):
+            return
         
         try:
             # Converte o thread_id para inteiro, caso seja passado como string
