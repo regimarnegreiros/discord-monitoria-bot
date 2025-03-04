@@ -3,20 +3,19 @@ from discord.ext.commands import Bot
 from discord import Guild, ForumChannel
 from tools.checks import check_guild, check_forum_channel
 from settings.config import GUILD_ID, FORUM_CHANNEL_ID
-from typing import Optional
 
-def get_forum_channel() -> Optional[ForumChannel]:
+def get_forum_channel() -> (ForumChannel | None):
     """Retorna ForumChannel do Client atual, se possível"""
 
-    client: Optional[Bot] = get_client()
+    client: (Bot | None) = get_client()
 
     try:
-        guild: Optional[Guild] = check_guild(client, GUILD_ID)
-        forum_channel: Optional[ForumChannel] = (
+        guild: (Guild | None) = check_guild(client, GUILD_ID)
+        forum_channel: (ForumChannel | None) = (
             check_forum_channel(guild, FORUM_CHANNEL_ID)
         )
 
-        assert guild and forum_channel
+        assert (guild and forum_channel)
     except (AttributeError, AssertionError):
         return None
 

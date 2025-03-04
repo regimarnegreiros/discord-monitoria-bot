@@ -1,7 +1,8 @@
 from forum_functions import get_forum_channel
 
 async def get_forum_posts():
-    """Retorna uma lista com o ID de todas as postagens dentro de um canal de fórum, incluindo arquivadas."""
+    """Retorna uma lista com o ID de todas as postagens
+    dentro de um canal de fórum, incluindo arquivadas."""
 
     forum_channel = get_forum_channel()
 
