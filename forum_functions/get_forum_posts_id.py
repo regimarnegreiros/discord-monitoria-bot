@@ -1,5 +1,3 @@
-import discord
-
 from forum_functions import get_forum_channel
 
 async def get_forum_posts():

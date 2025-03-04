@@ -1,38 +1,21 @@
 import discord
 
-from bot.client_instance import get_client
-from tools.checks import check_guild, check_forum_channel, check_thread, check_archived_thread
+from forum_functions import get_forum_channel
+from tools.checks import check_thread, check_archived_thread
 from settings.config import GUILD_ID, FORUM_CHANNEL_ID
 
 async def get_users_message_count_in_thread(thread_id: int):
     """Retorna um dicionário com os IDs dos usuários e a quantidade de mensagens que cada um enviou em uma thread específica."""
 
-    client = get_client()
-    guild = check_guild(client, GUILD_ID)
-    if not guild:
-        return {}
+    forum_channel = get_forum_channel()
 
-    forum_channel = check_forum_channel(guild, FORUM_CHANNEL_ID)
     if not forum_channel:
         return {}
 
     # Primeiro, tentamos verificar se a thread existe
-    thread = check_thread(forum_channel, thread_id)
+    thread, was_archived = await check_thread(forum_channel, thread_id)
     
-    if not thread:
-        # Se não encontramos a thread ativa, verificamos se ela está arquivada
-        archived_thread = await check_archived_thread(forum_channel, thread_id)
-
-        if not archived_thread:
-            print(f"Thread {thread_id} não encontrada ou arquivada.")
-            return {}
-
-        # Se a thread está arquivada, tentamos reabri-la
-        await archived_thread.edit(archived=False)
-        print(f"A thread {thread_id} foi reaberta para acessar o histórico de mensagens.")
-        thread = archived_thread  # Atualizando thread para ser a thread reaberta
-
-    # Se não encontramos nem a thread nem a thread arquivada reaberta, retornamos um dicionário vazio
+    # Se não encontramos a thread (arquivada reaberta ou não), retornamos um dicionário vazio
     if not thread:
         return {}
 
@@ -48,6 +31,9 @@ async def get_users_message_count_in_thread(thread_id: int):
             user_message_count[user_id] = 0
 
         user_message_count[user_id] += 1
+    
+    if was_archived:
+        await thread.edit(archived=True) # Fechando novamente thread arquivada
 
     return user_message_count
 

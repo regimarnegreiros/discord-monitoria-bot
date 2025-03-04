@@ -6,7 +6,7 @@ from settings.config import GUILD_ID, FORUM_CHANNEL_ID
 from typing import Optional
 
 def get_forum_channel() -> Optional[ForumChannel]:
-    """Retorna forum_channel, se possível"""
+    """Retorna ForumChannel do Client atual, se possível"""
 
     client: Optional[Bot] = get_client()
 
