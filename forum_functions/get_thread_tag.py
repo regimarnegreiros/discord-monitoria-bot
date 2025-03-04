@@ -1,26 +1,14 @@
 import discord
 
-from bot.client_instance import get_client
-from tools.checks import check_guild, check_forum_channel, check_thread, check_archived_thread
-from settings.config import GUILD_ID, FORUM_CHANNEL_ID
+from tools.checks import check_guild_forum_thread
 
 async def get_thread_tag_ids(thread_id: int):
     """Retorna uma lista com os IDs e nomes das tags aplicadas a uma thread específica."""
 
-    client = get_client()
-    guild = check_guild(client, GUILD_ID)
-    if not guild:
-        return []
-
-    forum_channel = check_forum_channel(guild, FORUM_CHANNEL_ID)
-    if not forum_channel:
-        return []
-
     # Primeiro, tentamos verificar se a thread existe
-    thread, was_archived = await check_thread(forum_channel, thread_id)
-
-    # Se não encontramos a thread (arquivada reaberta ou não),
-    # retornamos uma lista vazia
+    thread, was_archived = await check_guild_forum_thread(thread_id)
+    
+    # Se não encontramos a thread (arquivada aberta ou não), retornamos um dicionário vazio
     if not thread:
         return []
 

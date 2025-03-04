@@ -1,6 +1,7 @@
 from discord import TextChannel, ForumChannel, Interaction
 
-from settings.config import ADMIN_ROLE_ID
+from settings.config import ADMIN_ROLE_ID, GUILD_ID, FORUM_CHANNEL_ID
+from bot.client_instance import get_client
 
 # Função para verificar se o bot está no servidor
 def check_guild(client, guild_id):
@@ -62,6 +63,25 @@ async def check_thread(forum_channel, thread_id):
         thread = archived_thread # Atualizando thread para ser a reaberta
         was_archived = True
         
+    return (thread, was_archived)
+
+async def check_guild_forum_thread(thread_id):
+    was_archived = False
+    thread = None
+
+    # Verifica se o bot está no servidor
+    client = get_client()
+    guild = check_guild(client, GUILD_ID)
+    if not guild:
+        return (thread, was_archived)
+
+    # Verifica se o fórum exite
+    forum_channel = check_forum_channel(guild, FORUM_CHANNEL_ID)
+    if not forum_channel:
+        return (thread, was_archived)
+
+    # Verifica se a thread existe
+    thread, was_archived = await check_thread(forum_channel, thread_id)
     return (thread, was_archived)
 
 # Função para verificar se o usuário possui a role de admin
