@@ -4,6 +4,7 @@ from discord.ext import commands
 
 from forum_functions.count_messages import get_users_message_count_in_thread
 from tools.checks import check_admin_role
+from settings.config import FORUM_CHANNEL_ID, GUILD_ID
 
 class MessageCount(commands.Cog):
     def __init__(self, bot):
@@ -24,7 +25,8 @@ class MessageCount(commands.Cog):
             await interaction.response.send_message("O ID da thread fornecido não é válido.")
             return
 
-        user_message_count = await get_users_message_count_in_thread(thread_id)
+        guild_id = GUILD_ID
+        user_message_count = await get_users_message_count_in_thread(guild_id, FORUM_CHANNEL_ID, thread_id)
 
         if not user_message_count:
             await interaction.response.send_message("Não foi possível encontrar a thread ou não há mensagens de usuários nela.")
