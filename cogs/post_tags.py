@@ -4,7 +4,6 @@ from discord.ext import commands
 
 from forum_functions.get_thread_tag import get_thread_tag_ids
 from tools.checks import check_admin_role
-from settings.config import FORUM_CHANNEL_ID, GUILD_ID
 
 class ThreadTags(commands.Cog):
     def __init__(self, bot):
@@ -25,7 +24,7 @@ class ThreadTags(commands.Cog):
             await interaction.response.send_message("O ID da thread fornecido não é válido.")
             return
 
-        tag_info = await get_thread_tag_ids(GUILD_ID, FORUM_CHANNEL_ID, thread_id)
+        tag_info = await get_thread_tag_ids(thread_id)
 
         if not tag_info:
             await interaction.response.send_message("Não foi possível encontrar a thread ou não há tags aplicadas nela.")

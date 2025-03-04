@@ -2,8 +2,6 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from settings.config import GUILD_ID
-from settings.config import FORUM_CHANNEL_ID
 from forum_functions.get_forum_posts_id import get_forum_posts
 from tools.checks import check_admin_role
 
@@ -20,7 +18,7 @@ class GetPostsId(commands.Cog):
         if not await check_admin_role(interaction):
             return
         
-        posts = await get_forum_posts(GUILD_ID, FORUM_CHANNEL_ID)
+        posts = await get_forum_posts()
         posts_quantity = len(posts)
 
         message = f"ID das postagens extraídos com sucesso! \n\n{posts}\n\nQuantidade de posts: {posts_quantity}"
