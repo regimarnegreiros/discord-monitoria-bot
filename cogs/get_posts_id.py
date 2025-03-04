@@ -1,30 +1,33 @@
 import discord
 from discord import app_commands
-from discord.ext import commands
+from discord.ext.commands import Cog
 
 from forum_functions.get_forum_posts_id import get_forum_posts
 from tools.checks import check_admin_role
 
-class GetPostsId(commands.Cog):
+class GetPostsId(Cog):
     """Cog que faz um print no terminal o id de todos os posts do fórum."""
     
-    def __init__(self, client):
-        self.client = client
+    def __init__(self, client: discord.Client) -> None:
+        self.client: discord.Client = client
         super().__init__()
-    
-    @app_commands.command(name="posts_id", description="Coleta o id de todos os posts do fórum.")
-    async def getpostsid(self, interaction: discord.Interaction):
+
+    @app_commands.command(
+                    name="posts_id",
+                    description="Coleta o id de todos os posts do fórum.")
+    async def getpostsid(self, interaction: discord.Interaction) -> None:
         # Verificar se o usuário possui a role de admin
         if not await check_admin_role(interaction):
             return
-        
-        posts = await get_forum_posts()
-        posts_quantity = len(posts)
 
-        message = f"ID das postagens extraídos com sucesso! \n\n{posts}\n\nQuantidade de posts: {posts_quantity}"
+        posts: (list[int] | list) = await get_forum_posts()
+        posts_quantity: int = len(posts)
+
+        message: str = (f"ID das postagens extraídos com sucesso! \n\n"
+                   f"{posts}\n\nQuantidade de posts: {posts_quantity}")
 
         print(message)
         await interaction.response.send_message(message)
 
-async def setup(client):
+async def setup(client: discord.Client) -> None:
     await client.add_cog(GetPostsId(client))

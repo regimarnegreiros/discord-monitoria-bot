@@ -11,10 +11,11 @@ load_dotenv(dotenv_path='settings/.env')
 TOKEN = os.getenv('TOKEN')
 
 # Obtendo a instancia global de client
-client = get_client()
+client: discord.Client = get_client()
 
-async def load_cogs():
+async def load_cogs() -> None:
     """Carrega todos os cogs presentes na pasta 'cogs'."""
+    arquivo: str
     for arquivo in os.listdir('cogs'):
         if arquivo.endswith('.py'):
             try:
@@ -23,12 +24,12 @@ async def load_cogs():
                 print(f'Erro ao carregar cog {arquivo}: {e}')
 
 @client.tree.command(name="ping", description="Responde o usuário com pong.")
-async def ping(interaction: discord.Interaction):
+async def ping(interaction: discord.Interaction) -> None:
     """Comando que responde 'Pong 🏓' ao usuário."""
     await interaction.response.send_message("Pong 🏓")
 
 @client.event
-async def on_ready():
+async def on_ready() -> None:
     """Evento acionado quando o bot está pronto para usar."""
     await load_cogs()
     await client.tree.sync()
