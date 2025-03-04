@@ -17,22 +17,10 @@ async def get_thread_tag_ids(thread_id: int):
         return []
 
     # Primeiro, tentamos verificar se a thread existe
-    thread = check_thread(forum_channel, thread_id)
-    
-    if not thread:
-        # Se não encontramos a thread ativa, verificamos se ela está arquivada
-        archived_thread = await check_archived_thread(forum_channel, thread_id)
+    thread, was_archived = await check_thread(forum_channel, thread_id)
 
-        if not archived_thread:
-            print(f"Thread {thread_id} não encontrada ou arquivada.")
-            return []
-
-        # Se a thread está arquivada, tentamos reabri-la
-        await archived_thread.edit(archived=False)
-        print(f"A thread {thread_id} foi reaberta para acessar as tags.")
-        thread = archived_thread  # Atualizando thread para ser a thread reaberta
-
-    # Se não encontramos nem a thread nem a thread arquivada reaberta, retornamos uma lista vazia
+    # Se não encontramos a thread (arquivada reaberta ou não),
+    # retornamos uma lista vazia
     if not thread:
         return []
 
@@ -41,6 +29,9 @@ async def get_thread_tag_ids(thread_id: int):
 
     if not tags:
         return []
+    
+    if was_archived:
+        await thread.edit(archived=True) # Fechando novamente thread arquivada
     
     # Retornando uma lista com os IDs e nomes das tags
     return [{'id': tag.id, 'name': tag.name, 'emoji': tag.emoji} for tag in tags]
