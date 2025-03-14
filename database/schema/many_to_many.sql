@@ -1,9 +1,8 @@
 -- 3o a ser executado
-\c db_monitoria;
 
-CREATE TABLE IF NOT EXISTS usuario_thread (
+CREATE TABLE IF NOT EXISTS comp_user_thread (
     mapID SERIAL PRIMARY KEY,
-    discID INT REFERENCES usuario(discID) ON UPDATE CASCADE ON DELETE CASCADE,
+    discID INT REFERENCES comp_user(discID) ON UPDATE CASCADE ON DELETE CASCADE,
     threadID INT REFERENCES thread(threadID) ON UPDATE CASCADE ON DELETE CASCADE
 );
 
@@ -13,10 +12,10 @@ CREATE TABLE IF NOT EXISTS tag_thread (
     threadID INT NOT NULL REFERENCES thread(threadID) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS semestre_materia (
+CREATE TABLE IF NOT EXISTS semester_subject (
     mapID SERIAL PRIMARY KEY,
-    semestreID INT NOT NULL REFERENCES semestre(semestreID),
-    materiaID INT NOT NULL REFERENCES materia(materiaID),
-    dados_materia_semestre STATS_DUVIDAS NOT NULL,
-    CHECK (stats_duvidas_check(dados_materia_semestre))
+    semesterID INT NOT NULL REFERENCES semester(semesterID),
+    subjectID INT NOT NULL REFERENCES comp_subject(subjectID),
+    stats_subject_semester STATS_QUESTIONS NOT NULL,
+    CHECK (stats_questions_check(stats_subject_semester))
 );

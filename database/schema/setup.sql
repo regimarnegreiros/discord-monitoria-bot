@@ -1,21 +1,20 @@
 -- PostgreSQL
 -- 1o a ser executado
 
-CREATE DATABASE db_monitoria;
-\c db_monitoria;
-
-CREATE TYPE STATS_DUVIDAS AS (
+CREATE TYPE STATS_QUESTIONS AS (
     total INT,
-    respondidas INT,
-    resolvidas INT
+    answered INT,
+    solved INT
 );
 
-CREATE OR REPLACE FUNCTION stats_duvidas_check(dados STATS_DUVIDAS)
+CREATE OR REPLACE FUNCTION stats_questions_check(questions_data STATS_QUESTIONS)
 RETURNS BOOLEAN AS $$
 BEGIN
-    RETURN (dados.total >= dados.respondidas) AND 
-           (dados.respondidas >= dados.resolvidas) AND
-           (dados.resolvidas >= 0);
+    RETURN (questions_data.total >= questions_data.answered) AND 
+           (questions_data.answered >= questions_data.solved) AND
+           (questions_data.solved >= 0);
 END;
 $$
 LANGUAGE plpgsql;
+
+SET client_min_messages TO WARNING;

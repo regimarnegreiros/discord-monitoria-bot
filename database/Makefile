@@ -1,15 +1,7 @@
-prog = psql
-user = $(shell whoami)
+M_ARGS = --no-print-directory
 
-$(prog):
-	@ which $@ >/dev/null
+insert-data : make-schema
+	@ cd inserts && make -f ./$@.mak $(M_ARGS)
 
-pre-setup: psql
-	@ sudo -u postgres createuser $(user)
-	@ sudo -u postgres createdb $(user)
-	@ sudo -u postgres psql -c "ALTER USER $(user) WITH SUPERUSER;"
-
-schema_setup : pre-setup
-	@ psql -f ./schema/setup.sql
-	@ psql -f ./schema/schema.sql
-	@ psql -f ./schema/many-to-many.sql
+make-schema :
+	@ cd schema && make -f ./$@.mak $(M_ARGS)
