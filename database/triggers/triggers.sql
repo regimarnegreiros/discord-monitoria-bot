@@ -1,26 +1,59 @@
-/* sync op qtd_duvidas on_thread_* (ex.: on_thread_create: +1 qtd_duvidas_total em materia, semestre) */
-
-/*
-    let tagID 1 = resolvida, subjectID 2 = POO;
-    insert tag_thread.index 1 = (NULL, 2);
-    if update tag_thread.tagID = (1), update subject.stats.solved += 1;
-    if delete tag_thread.tagID, update subject.stats.solved -= 1; (?)
-*/
-/*
-CREATE OR REPLACE FUNCTION solved_tag_increment() RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION question_data_update() RETURNS TRIGGER AS $$
 DECLARE
-    is_solved       BOOLEAN;
-    solved_count    INT;
+    tag_solved      BIGINT := 1281071345991684238;
+    rec             RECORD;
 BEGIN
-    IF (TG_OP = 'UPDATE') THEN
-        
-    ELSIF (TG_OP = 'DELETE') THEN
+    IF (TG_OP = 'INSERT') THEN
+        IF (NEW.tagID = tag_solved) THEN
+            FOR rec IN SELECT t2.subjectID FROM tag_thread t1
+                            LEFT JOIN tags t2 ON t1.tagID = t2.tagID
+                        WHERE t1.threadID = NEW.threadID
+            LOOP
+                UPDATE comp_subject
+                    SET questions_data.solved = (questions_data).solved + 1
+                WHERE comp_subject.subjectID = rec.subjectID;
+            END LOOP;
+        ELSE
+            SELECT subjectID INTO rec FROM tags WHERE NEW.tagID = tags.tagID;
+            UPDATE comp_subject
+                    SET questions_data.total = (questions_data).total + 1
+            WHERE comp_subject.subjectID = rec.subjectID;
+        END IF;
+    ELSE
+        IF (OLD.tagID <> tag_solved) THEN
+            SELECT tags.subjectID INTO rec
+            FROM tags WHERE tags.tagID = OLD.tagID;
 
-    ENDIF
-        
+            UPDATE comp_subject
+                SET questions_data.solved = (questions_data).solved - 1
+            WHERE comp_subject.subjectID = rec.subjectID;
+            UPDATE comp_subject
+                SET questions_data.answered = (questions_data).answered - 1
+            WHERE comp_subject.subjectID = rec.subjectID;
+            UPDATE comp_subject
+                SET questions_data.total = (questions_data).total - 1
+            WHERE comp_subject.subjectID = rec.subjectID;
+        ELSE
+            FOR rec IN SELECT t2.subjectID FROM tag_thread t1
+                            LEFT JOIN tags t2 ON t1.tagID = t2.tagID
+                        WHERE t1.threadID = OLD.threadID
+            LOOP
+                UPDATE comp_subject
+                    SET questions_data.solved = (questions_data).solved - 1
+                WHERE comp_subject.subjectID = rec.subjectID;
+                UPDATE comp_subject
+                    SET questions_data.answered = (questions_data).answered - 1
+                WHERE comp_subject.subjectID = rec.subjectID;
+                UPDATE comp_subject
+                    SET questions_data.total = (questions_data).total - 1
+                WHERE comp_subject.subjectID = rec.subjectID;
+            END LOOP;
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
-CREATE TRIGGER solved_tag_incrementer
-AFTER UPDATE OR DELETE ON tag_thread
-FOR EACH ROW EXECUTE FUNCTION solved_tag_increment();
-*/
--- if (lower(nome) like '%resolvid%' from tags) incr (dados).resolvidas from materia, incr (dados).resolvidas from aluno
+CREATE OR REPLACE TRIGGER question_data_update
+AFTER INSERT OR DELETE ON tag_thread
+FOR EACH ROW EXECUTE FUNCTION question_data_update();

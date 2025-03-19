@@ -1,1 +1,0 @@
-\c db_monitoring;
