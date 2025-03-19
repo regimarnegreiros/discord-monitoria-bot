@@ -1,6 +1,7 @@
+import discord
 from discord import (
     TextChannel, ForumChannel, 
-    Interaction, Guild, Thread
+    Interaction, Guild, Thread, Member
 )
 
 from settings.config import ADMIN_ROLE_ID, GUILD_ID, FORUM_CHANNEL_ID, MONITOR_ROLE_ID
@@ -96,6 +97,25 @@ async def check_admin_role(interaction: Interaction) -> bool:
                 ephemeral=True)
         return False
     return True
+
+async def check_monitor(member: Member) -> bool:
+    """
+    Função que verifica se o membro tem o cargo de monitor e se está no servidor correto.
+    
+    :param member: O objeto 'discord.Member' do usuário que queremos verificar.
+    :return: True se o usuário tiver o cargo de monitor no servidor correto, False caso contrário.
+    """
+    # Verifica se o membro está no servidor correto
+    if member.guild.id != GUILD_ID:
+        return False
+
+    # Verifica se o membro tem o cargo de monitor no servidor específico
+    role = discord.utils.get(member.guild.roles, id=MONITOR_ROLE_ID)
+    
+    if role and role in member.roles:
+        return True
+    else:
+        return False
 
 async def check_thread_object(thread: Thread) -> bool:
     """
