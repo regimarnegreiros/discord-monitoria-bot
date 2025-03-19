@@ -1,10 +1,13 @@
-from discord import TextChannel, ForumChannel, Interaction
+from discord import (
+    TextChannel, ForumChannel, 
+    Interaction, Guild, Thread
+)
 
-from settings.config import ADMIN_ROLE_ID, GUILD_ID, FORUM_CHANNEL_ID
+from settings.config import ADMIN_ROLE_ID, GUILD_ID, FORUM_CHANNEL_ID, MONITOR_ROLE_ID
 from bot.client_instance import get_client
 
 # Função para verificar se o bot está no servidor
-def check_guild(client, guild_id):
+def check_guild(client, guild_id) -> (Guild | None):
     guild = client.get_guild(guild_id)
     if not guild:
         print("O bot não está no servidor especificado!")
@@ -12,7 +15,7 @@ def check_guild(client, guild_id):
     return guild
 
 # Função para verificar se o canal é válido e é um canal de texto
-def check_channel(guild, channel_id):
+def check_channel(guild, channel_id) -> (TextChannel | None):
     channel = guild.get_channel(channel_id)
     if not channel or not isinstance(channel, TextChannel):
         print("Canal inválido ou não é um canal de texto.")
@@ -20,7 +23,7 @@ def check_channel(guild, channel_id):
     return channel
 
 # Função para verificar se o canal é um fórum
-def check_forum_channel(guild, forum_id):
+def check_forum_channel(guild, forum_id) -> (ForumChannel | None):
     forum_channel = guild.get_channel(forum_id)
     if not forum_channel or not isinstance(forum_channel, ForumChannel):
         print("Canal inválido ou não é um fórum.")
@@ -28,7 +31,7 @@ def check_forum_channel(guild, forum_id):
     return forum_channel
 
 # Função para verificar se a thread existe no canal
-async def check_thread(forum_channel, thread_id):
+async def check_thread(forum_channel, thread_id) -> (tuple[(Thread | None), bool]):
     # Primeiro, tentamos verificar se a thread existe
     thread = forum_channel.get_thread(thread_id)
     was_archived = False
@@ -65,7 +68,7 @@ async def check_thread(forum_channel, thread_id):
         
     return (thread, was_archived)
 
-async def check_guild_forum_thread(thread_id):
+async def check_guild_forum_thread(thread_id) -> (tuple[(Thread | None), bool]):
     was_archived = False
     thread = None
 
@@ -85,7 +88,7 @@ async def check_guild_forum_thread(thread_id):
     return (thread, was_archived)
 
 # Função para verificar se o usuário possui a role de admin
-async def check_admin_role(interaction: Interaction):
+async def check_admin_role(interaction: Interaction) -> bool:
     user = interaction.user
     if ADMIN_ROLE_ID not in [role.id for role in user.roles]:
         await interaction.response.send_message(
@@ -93,3 +96,20 @@ async def check_admin_role(interaction: Interaction):
                 ephemeral=True)
         return False
     return True
+
+async def check_thread_object(thread: Thread) -> bool:
+    """
+    Verifica se a thread foi criada no servidor e canal de fórum específicos.
+
+    Args:
+        thread (Thread): O objeto Thread a ser verificado.
+
+    Returns:
+        bool: Retorna True se a thread for do servidor e canal de fórum especificados, 
+              caso contrário, retorna False.
+    """
+    is_correct_guild = thread.guild.id == GUILD_ID
+    is_correct_channel = thread.parent_id == FORUM_CHANNEL_ID
+    is_forum_channel = isinstance(thread.parent, ForumChannel)
+
+    return is_correct_guild and is_correct_channel and is_forum_channel
