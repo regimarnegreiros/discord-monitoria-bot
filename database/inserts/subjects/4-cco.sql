@@ -1,4 +1,4 @@
-INSERT INTO comp_subject VALUES 
+INSERT INTO subjects VALUES 
     ('CCO015', 'Teoria da Computação', (0, 0, 0)), -- Mod. 2A
     ('CCO072', 'Banco de Dados II', (0, 0, 0)), -- Mod. 2B
     ('CCO085', 'Programação Paralela', (0, 0, 0)), -- Mod. 3B

@@ -1,13 +1,13 @@
 -- 2o a ser executado
 
-CREATE TABLE IF NOT EXISTS comp_subject (
+CREATE TABLE IF NOT EXISTS subjects (
     subjectID VARCHAR(7) PRIMARY KEY,
     subject_name VARCHAR(100) NOT NULL,
     questions_data STATS_QUESTIONS NOT NULL
     CHECK (stats_questions_check(questions_data))
 ); -- ex.: (15, POO, (0, 0, 0)); on_new_semester: export questions_data somewhere, 0's on original materia(questions_data)
 
-CREATE TABLE IF NOT EXISTS comp_user (
+CREATE TABLE IF NOT EXISTS users (
     discID BIGINT PRIMARY KEY,
     is_monitor BOOLEAN NOT NULL,
     questions_data STATS_QUESTIONS NOT NULL
@@ -19,13 +19,13 @@ CREATE TABLE IF NOT EXISTS thread ( -- thread de duvida
     threadCreatorID BIGINT,
     creationDate DATE NOT NULL,
     PRIMARY KEY (threadID, threadCreatorID),
-    FOREIGN KEY (threadCreatorID) REFERENCES comp_user(discID) ON DELETE CASCADE
+    FOREIGN KEY (threadCreatorID) REFERENCES users(discID) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS tags (
     tagID BIGINT PRIMARY KEY,
     tag_name VARCHAR(50) UNIQUE NOT NULL,
-    subjectID VARCHAR(7) UNIQUE REFERENCES comp_subject(subjectID)
+    subjectID VARCHAR(7) UNIQUE REFERENCES subjects(subjectID)
 );
 
 CREATE TABLE IF NOT EXISTS semester (

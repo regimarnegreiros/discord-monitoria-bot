@@ -1,4 +1,4 @@
-INSERT INTO comp_subject VALUES
+INSERT INTO subjects VALUES
     ('ENG004', 'Práticas de Engenharia', (0, 0, 0)), -- Mod. 1A
     ('ENG023', 'Eletrônica Digital', (0, 0, 0)), -- Mod. 2A
     ('ENG018', 'Circuitos Elétricos', (0, 0, 0)), -- Mod. 2B
