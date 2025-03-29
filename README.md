@@ -12,6 +12,9 @@ O **Registros de Monitoria** é um bot desenvolvido para auxiliar no gerenciamen
     pip install -r requirements.txt
     ```
 
+2. **Setup do Banco de Dados:**
+
+    Cheque [este README](./database/README.md).
 
 ### Configuração
 
