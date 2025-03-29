@@ -6,13 +6,15 @@ O banco de dados utiliza PostgreSQL, integrado ao bot com SQLAlchemy e o driver 
 
 Embora o SQLAlchemy não dependa diretamente do Psycopg2, este último é necessário para o banco funcionar.
 
+Um ambiente virtual é utilizado para separar as dependências de projeto de dependências do sistema operacional, evitando conflitos de versões de pacotes comuns.
+
 ## Instalação
 
 1. Em sistemas Debian/Ubuntu, instale pacotes adicionais:
-   - ``libpq-dev``
-   - ``python3-dev``
-   - ``build-essential`` (se necessário)
-   - ``postgresql-server-dev-all`` (se necessário)
+   - ``libpq-dev`` (pacote para compilação de programas que usam PostgreSQL)
+   - ``python3-dev`` (cabeçalhos e bibliotecas para compilar extensões C que usam Python)
+   - ``build-essential`` (se necessário: inclui ferramentas essenciais de compilação, como gcc e make)
+   - ``postgresql-server-dev-all`` (se necessário: arquivos para compilar extensões e interagir com o servidor PostgreSQL)
 
 2. Instale as dependências com o comando:
    
