@@ -1,47 +1,54 @@
+import db_commons as com
 import os
-from os import sep as SEP
 from shutil import which
-from sys import stderr
-from dotenv import load_dotenv
-
-def eprint(*args, **kwargs):
-    print(*args, file=stderr, **kwargs)
-
-WD = (os.path.dirname(os.path.abspath(__file__))
-            .removesuffix(f"{SEP}database{SEP}data") + SEP)
-DBWD = f"{WD}database{SEP}"
-
-if not load_dotenv(dotenv_path=f"{WD}settings{SEP}.env"):
-    eprint("error loading environment variables")
-    exit(1)
+import sqlalchemy as sql
+from sqlalchemy import text
 
 if not which("psql"):
-    eprint("PostgreSQL not installed or not in PATH")
+    com.eprint("PostgreSQL not installed or not in PATH")
     exit(1)
 
-PASSW = os.getenv("PASSW")
+if os.name == "posix":
+    SHUTUP: str = ">/dev/null 2>&1"
+    hba_line_old: str = ("local   all             all"
+                         "                                     peer")
+    hba_line_new: str = ("local   all             all"
+                         "                                     scram-sha-256")
+    hba_file: str = os.popen("sudo -u postgres psql -t -P format=unaligned"
+                             " -c \"SHOW hba_file;\"").read()
 
-CMD = "psql -U monitor_admin -d db_monitoring"
+    os.system(f"sudo sed -i '/{hba_line_old}/c\\{hba_line_new}' {hba_file}")
+    os.system(f"systemctl --version {SHUTUP}"
+              " && sudo systemctl restart postgresql"
+              "|| /etc/init.d/postgresql restart")
+    
+    del SHUTUP, hba_line_new, hba_line_old, hba_file
 
-if os.system("createdb -O monitor_admin db_monitoring"):
-    eprint("db already exists, regenerating defaults")
-    os.system("dropdb db_monitoring")
-    os.system("dropuser monitor_admin")
-    os.system("createuser -s monitor_admin")
-    os.system("createdb -O monitor_admin db_monitoring")
+os.system(f"{"sudo -u postgres " if os.name == "posix" else ""}psql -c "
+          "\"CREATE USER monitor_admin"
+          f" WITH ENCRYPTED PASSWORD '{com.PASSW}';\"")
+os.system(f"{"sudo -u postgres " if os.name == "posix" else ""}psql -c "
+          "\"CREATE DATABASE db_monitoring;\"")
 
-os.system("createuser -s monitor_admin")
-if os.name == "nt":
-    os.system(f"SET PGPASSWORD=\"{PASSW}\"")
-else:
-    os.system(f"export PGPASSWORD=\"{PASSW}\"")
+# GRANTS
+os.system(f"{"sudo -u postgres " if os.name == "posix" else ""}psql -c "
+          "\"ALTER DATABASE db_monitoring OWNER TO monitor_admin;\"")
+os.system(f"{"sudo -u postgres " if os.name == "posix" else ""}psql -c "
+          "\"GRANT ALL PRIVILEGES ON DATABASE db_monitoring"
+          " TO monitor_admin WITH GRANT OPTION;\"")
+os.system(f"{"sudo -u postgres " if os.name == "posix" else ""}psql -c "
+          "\"GRANT ALL PRIVILEGES ON SCHEMA public"
+          " TO monitor_admin;\"")
+os.system(f"{"sudo -u postgres " if os.name == "posix" else ""}psql -c "
+          "\"GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public"
+          " TO monitor_admin;\"")
+os.system(f"{"sudo -u postgres " if os.name == "posix" else ""}psql -c "
+          "\"GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public"
+          " TO monitor_admin;\"")
 
-os.system(f"{CMD} -c "
-          f"\"ALTER USER monitor_admin WITH PASSWORD '{PASSW}';\"")
-
-files = [dir_contents[0] + SEP + file for dir_contents in os.walk(DBWD)
-         for file in dir_contents[2] if file.endswith(".sql")]
-files.sort(key=lambda file: file[file.rindex(SEP) + 1])
-
-for file in files:
-    os.system(f"{CMD} -f {file}")
+engine: sql.Engine = sql.create_engine(com.DATABASE_URL)
+with engine.connect() as con:
+    for file in com.files:
+        with open(file) as query:
+            con.execute(text(query.read()))
+engine.dispose()

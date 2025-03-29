@@ -1,4 +1,4 @@
--- 3o a ser executado
+/* 3o a ser executado */
 
 CREATE TABLE IF NOT EXISTS user_thread (
     mapID SERIAL PRIMARY KEY,
@@ -18,8 +18,7 @@ CREATE TABLE IF NOT EXISTS semester_subject (
     mapID SERIAL PRIMARY KEY,
     semesterID BIGINT NOT NULL REFERENCES semester(semesterID),
     subjectID VARCHAR(7) NOT NULL REFERENCES subjects(subjectID),
-    stats_subject_semester STATS_QUESTIONS NOT NULL,
-    monitorIDs BIGINT[],
-    CHECK (stats_questions_check(stats_subject_semester))
+    question_data STATS_QUESTIONS NOT NULL,
+    CHECK (stats_questions_check(question_data))
 );
--- 20241, mdc119, (15, 10, 8)
+/* 20241, mdc119, (15, 10, 8) */

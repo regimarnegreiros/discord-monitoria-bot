@@ -1,5 +1,5 @@
--- PostgreSQL
--- 1o a ser executado
+/* PostgreSQL
+ 1o a ser executado */
 
 CREATE TYPE STATS_QUESTIONS AS (
     total INT,
@@ -18,4 +18,3 @@ $$
 LANGUAGE plpgsql;
 
 SET client_min_messages TO WARNING;
---\set ON_ERROR_STOP on;
