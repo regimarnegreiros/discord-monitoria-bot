@@ -10,20 +10,29 @@ Um ambiente virtual é utilizado para separar as dependências de projeto de dep
 
 ## Instalação
 
-1. Em sistemas Debian/Ubuntu, instale pacotes adicionais:
+### Windows
+
+1. Baixe e instale o [PostgreSQL](https://www.enterprisedb.com/downloads/postgres-postgresql-downloads).
+
+   Não precisa instalar o Stack Builder, então desmarque a opção.
+
+2. Entre em um perfil de administrador, digite ``path`` na barra de pesquisa, e clique na 1ª opção.
+
+3. Clique em "Variáveis de Ambiente", e, em "Variáveis do Sistema", clique 2 vezes em "Path".
+
+4. Clique em "Novo", depois "Procurar", e busque pela pasta "PostgreSQL/_versão instalada_/bin".
+
+5. Clique nos "OK"s disponíveis.
+
+### Linux
+
+1. Instale o pacote ``postgresql`` com seu gerenciador de pacotes. Recomenda-se seguir os passos [aqui](https://www.postgresql.org/download/) ou no site de sua distribuição para garantir o bom funcionamento do PostgreSQL.
+
+2. Em sistemas Debian/Ubuntu, instale pacotes adicionais:
    - ``libpq-dev`` (pacote para compilação de programas que usam PostgreSQL)
    - ``python3-dev`` (cabeçalhos e bibliotecas para compilar extensões C que usam Python)
    - ``build-essential`` (se necessário: inclui ferramentas essenciais de compilação, como gcc e make)
    - ``postgresql-server-dev-all`` (se necessário: arquivos para compilar extensões e interagir com o servidor PostgreSQL)
-
-2. Instale as dependências com o comando:
-   
-   ```sh
-   pip install -r requirements.txt
-   ```
-
-
-Alternativamente, você pode usar o pacote psycopg2-binary via Pip.
 
 3. Crie e ative um ambiente virtual:
    
@@ -31,7 +40,14 @@ Alternativamente, você pode usar o pacote psycopg2-binary via Pip.
    python -m venv <caminho_do_ambiente>
    source <caminho_do_ambiente>/bin/activate
    ```
+
+4. Instale as dependências com o comando:
    
+   ```sh
+   pip install -r requirements.txt
+   ```
+
+   Alternativamente, você pode usar o pacote psycopg2-binary via Pip.
 
 ## Setup
 
