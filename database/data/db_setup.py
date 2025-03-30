@@ -4,6 +4,11 @@ from shutil import which
 import sqlalchemy as sql
 from sqlalchemy import text
 
+if os.name == "posix":
+    CMD = "sudo -u postgres psql -U postgres -c "
+else:
+    CMD = f"psql postgres://postgres:{com.PASSW}@localhost:5432/postgres -c "
+
 if not which("psql"):
     com.eprint("PostgreSQL not installed or not in PATH")
     exit(1)
@@ -24,31 +29,24 @@ if os.name == "posix":
     
     del SHUTUP, hba_line_new, hba_line_old, hba_file
 
-os.system(f"{"sudo -u postgres " if os.name == "posix" else ""}psql -c "
-          "\"CREATE USER monitor_admin"
+os.system(CMD + "\"CREATE USER monitor_admin"
           f" WITH ENCRYPTED PASSWORD '{com.PASSW}';\"")
-os.system(f"{"sudo -u postgres " if os.name == "posix" else ""}psql -c "
-          "\"CREATE DATABASE db_monitoring;\"")
+os.system(CMD + "\"CREATE DATABASE db_monitoring;\"")
 
 # GRANTS
-os.system(f"{"sudo -u postgres " if os.name == "posix" else ""}psql -c "
-          "\"ALTER DATABASE db_monitoring OWNER TO monitor_admin;\"")
-os.system(f"{"sudo -u postgres " if os.name == "posix" else ""}psql -c "
-          "\"GRANT ALL PRIVILEGES ON DATABASE db_monitoring"
-          " TO monitor_admin WITH GRANT OPTION;\"")
-os.system(f"{"sudo -u postgres " if os.name == "posix" else ""}psql -c "
-          "\"GRANT ALL PRIVILEGES ON SCHEMA public"
-          " TO monitor_admin;\"")
-os.system(f"{"sudo -u postgres " if os.name == "posix" else ""}psql -c "
-          "\"GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public"
-          " TO monitor_admin;\"")
-os.system(f"{"sudo -u postgres " if os.name == "posix" else ""}psql -c "
-          "\"GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public"
-          " TO monitor_admin;\"")
+os.system(CMD + "\"ALTER DATABASE db_monitoring OWNER TO monitor_admin;\"")
+os.system(CMD + "\"GRANT ALL PRIVILEGES ON DATABASE db_monitoring"
+                " TO monitor_admin WITH GRANT OPTION;\"")
+os.system(CMD + "\"GRANT ALL PRIVILEGES ON SCHEMA public"
+                " TO monitor_admin;\"")
+os.system(CMD + "\"GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public"
+                " TO monitor_admin;\"")
+os.system(CMD + "\"GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public"
+                " TO monitor_admin;\"")
 
 engine: sql.Engine = sql.create_engine(com.DATABASE_URL)
 with engine.connect() as con:
     for file in com.files:
-        with open(file) as query:
+        with open(file, encoding="utf-8") as query:
             con.execute(text(query.read()))
 engine.dispose()
