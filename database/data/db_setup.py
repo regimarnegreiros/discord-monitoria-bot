@@ -44,9 +44,11 @@ os.system(CMD + "\"GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public"
 os.system(CMD + "\"GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public"
                 " TO monitor_admin;\"")
 
-engine: sql.Engine = sql.create_engine(com.DATABASE_URL)
+DATABASE_URL = com.DATABASE_URL.replace("asyncpg", "psycopg2")
+engine: sql.Engine = sql.create_engine(DATABASE_URL)
 with engine.connect() as con:
     for file in com.files:
         with open(file, encoding="utf-8") as query:
             con.execute(text(query.read()))
+            con.commit()
 engine.dispose()

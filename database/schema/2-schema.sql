@@ -16,8 +16,8 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE IF NOT EXISTS thread ( /* thread de duvida */
     threadID BIGINT UNIQUE,
-    threadCreatorID BIGINT,
-    creationDate DATE NOT NULL,
+    threadCreatorID BIGINT NOT NULL,
+    creationDate TIMESTAMP NOT NULL,
     PRIMARY KEY (threadID, threadCreatorID),
     FOREIGN KEY (threadCreatorID) REFERENCES users(discID) ON DELETE CASCADE
 );

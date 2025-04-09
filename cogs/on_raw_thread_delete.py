@@ -1,6 +1,7 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
+from database.data.db_funcs import db_thread_delete
 
 from forum_functions.get_thread_infos import get_thread_infos
 from tools.checks import check_thread_object
@@ -23,6 +24,7 @@ class OnRawThreadDelete(commands.Cog):
 
         # Removerá as informações da thread no banco de dados (Necessário implementar ainda)
         thread_infos = await get_thread_infos(payload.thread)
+        await db_thread_delete(thread_infos["id"])
         print(f"Informações removidas do banco:\n{thread_infos}")
 
 

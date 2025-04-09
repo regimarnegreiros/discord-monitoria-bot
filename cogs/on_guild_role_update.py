@@ -1,6 +1,7 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
+from database.data.db_funcs import db_monitor_update
 
 from tools.checks import check_monitor
 
@@ -27,6 +28,7 @@ class OnGuildRoleUpdate(commands.Cog):
 
         # Se houve uma mudança no status de "monitor"
         if before_monitor != after_monitor:
+            await db_monitor_update(after.id, after_monitor)
             if after_monitor:
                 print(f"{after.nick} ganhou o cargo de monitor.")  # O membro ganhou o cargo
                 # Implementar função que adiciona o cargo de monitor do banco de dados no semestre atual 
