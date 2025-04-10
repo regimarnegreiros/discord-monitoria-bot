@@ -3,6 +3,7 @@ from discord.ext import commands
 
 from forum_functions.get_thread_infos import get_thread_infos
 from tools.checks import check_thread_object
+from database.data.db_funcs import db_thread_update
 
 class OnRawThreadUpdate(commands.Cog):
     """Classe que lida com eventos relacionados à atualização de threads."""
@@ -24,6 +25,8 @@ class OnRawThreadUpdate(commands.Cog):
         print(f"Novas informações da thread:\n{thread_infos}")
 
         # Buscar as tags e resolução da thread no banco de dados
+        await db_thread_update(payload.thread.id,
+                         *[tag["id"] for tag in thread_infos["applied_tags"]])
         
         # Comparar as tags (matérias) atuais da thread com as tags do banco
             # Se as tags (matérias) mudaram, atualizar as informações no banco para refletir a alteração
