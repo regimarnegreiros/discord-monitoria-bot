@@ -18,7 +18,7 @@ O **Registros de Monitoria** é um bot desenvolvido para auxiliar no gerenciamen
 
 ### Configuração
 
-1. **Crie uma cópia** do arquivo `config_example.py` e nomeie-a como `config.py`. Em seguida, altere as variáveis no `config.py` com os valores reais do seu servidor e canais.
+1. Ao iniciar o bot pela primeira vez, ele criará automaticamente um arquivo chamado `config.json`. Edite as variáveis dentro desse arquivo, substituindo pelos valores reais do seu servidor e canais.
 2. **Crie uma cópia** do arquivo chamado `.env.exemple` e nomeie-a como `.env` na raiz do seu projeto. Substitua as variáveis de ambiente pelos valores reais.
 
 

@@ -18,7 +18,7 @@ class GetPostsId(commands.Cog):
         if not await check_admin_role(interaction):
             return
         
-        posts = await get_forum_posts()
+        posts = await get_forum_posts(interaction.guild_id)
         posts_quantity = len(posts)
 
         message = f"ID das postagens extraídos com sucesso! \n\n{posts}\n\nQuantidade de posts: {posts_quantity}"

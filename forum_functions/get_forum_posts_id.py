@@ -1,18 +1,27 @@
 import discord
+from tools.json_config import load_json
 
 from bot.client_instance import get_client
 from tools.checks import check_guild, check_forum_channel
-from settings.config import GUILD_ID, FORUM_CHANNEL_ID
 
-async def get_forum_posts():
+async def get_forum_posts(guild_id):
     """Retorna uma lista com o ID de todas as postagens dentro de um canal de fórum, incluindo arquivadas."""
+    
+    # Carregar as configurações do JSON
+    data = load_json()
+
+    # Obter o canal de fórum associado ao servidor fornecido
+    forum_channel_id = data.get(str(guild_id), {}).get("FORUM_CHANNEL_ID")
+
+    if not forum_channel_id:
+        return []
 
     client = get_client()
-    guild = check_guild(client, GUILD_ID)
+    guild = check_guild(client, guild_id)
     if not guild:
         return []
 
-    forum_channel = check_forum_channel(guild, FORUM_CHANNEL_ID)
+    forum_channel = check_forum_channel(guild, forum_channel_id)
     if not forum_channel:
         return []
 

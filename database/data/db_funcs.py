@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from database.data import db_commons as com
 import discord as disc
 from bot.client_instance import get_client
-from settings.config import GUILD_ID
+from tools.json_config import get_first_server_id
 from tools.checks import check_monitor
 from datetime import date
 
@@ -29,7 +29,7 @@ async def db_new_user(_CONN: aio.AsyncConnection, userID: int) -> bool:
     """
     Insere um novo usuário no banco de dados
     """
-    user: disc.Member = get_client().get_guild(GUILD_ID).get_member(userID)
+    user: disc.Member = get_client().get_guild(get_first_server_id()).get_member(userID)
 
     try:
         res: sql.CursorResult = await _CONN.execute(text(
