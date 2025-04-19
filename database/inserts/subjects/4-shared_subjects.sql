@@ -57,3 +57,5 @@ INSERT INTO subjects VALUES
     ('MDC080', 'Sistemas de Comunicação', (0, 0, 0)),
     ('MDC128', 'Sistemas de Tempo Real', (0, 0, 0)),
     ('MDC168', 'Compiladores', (0, 0, 0));
+
+INSERT INTO subjects VALUES ('MDC000', 'Outros', (0, 0, 0));

@@ -29,12 +29,17 @@ async def db_new_user(_CONN: aio.AsyncConnection, userID: int) -> bool:
     """
     Insere um novo usuário no banco de dados
     """
+<<<<<<< HEAD
     user: disc.Member = get_client().get_guild(get_first_server_id()).get_member(userID)
+=======
+    user: disc.Member = (get_client().get_guild(get_first_server_id())
+                                     .get_member(userID))
+>>>>>>> 23215af (Setup para tabela de monitores; Tag 'Outro' como materia)
 
     try:
         res: sql.CursorResult = await _CONN.execute(text(
             "INSERT INTO users VALUES "
-            f"({userID}, {await check_monitor(user)}, (1, 0, 0));"
+            f"({userID}, (1, 0, 0));"
         ))
     except IntegrityError:
         await _CONN.rollback()
@@ -43,6 +48,14 @@ async def db_new_user(_CONN: aio.AsyncConnection, userID: int) -> bool:
                         " (questions_data).total + 1 "
             f"WHERE discID = {userID}"
         ))
+    if await check_monitor(user):
+        try:
+            res2: sql.CursorResult = await _CONN.execute(text(
+                "INSERT INTO monitors (discID, monitor_data) VALUES "
+                f"({userID}, (0, 0))"
+            ))
+        except IntegrityError:
+            pass
 
     return res.rowcount > 0
 
@@ -57,25 +70,32 @@ async def db_new_semester(
     """
 
     curr_date: date = date.today()
-    year: int = curr_date.year
-    semester: int = round(curr_date.month / 12) + 1
+    current: dict[str, int] = {
+        "year": curr_date.year,
+        "semester": round(curr_date.month / 12) + 1
+    }
+    previous: dict[str, int] = {
+        "year": (current["year"] if current["semester"] == 2
+                 else current["year"] - 1),
+        "semester": 1 if current["semester"] == 2 else 2
+    }
 
     await _CONN.execute(text(
         "INSERT INTO semester (semester_year, semester) VALUES"
-        f"({year}, {semester})"
+        f"({current['year']}, {current['semester']})"
     ))
 
     await _CONN.execute(text(
         "UPDATE semester"
-        "SET monitors ="
+        "SET monitors = "
             "(SELECT monitors FROM semester "
-            f"WHERE semester_year = {year if semester == 2 else year - 1}"
-            f"AND semester = {1 if semester == 2 else semester})"
-        f"WHERE semester_year = {year if semester == 2 else year - 1} "
-        f"AND semester = {1 if semester == 2 else semester}"
+            f"WHERE semester_year = {previous['year']}"
+            f"AND semester = {previous['semester']})"
+        f"WHERE semester_year = {previous['year']} "
+        f"AND semester = {previous['semester']}"
     ))
 
-        
+    
 
 @connection_execute
 async def db_thread_delete(_CONN: aio.AsyncConnection, threadID: int) -> bool:
@@ -103,13 +123,20 @@ async def db_monitor_update(
     Pareado com on_guild_role_update
     """
 
-    res = await _CONN.execute(text(
-        f"UPDATE users SET is_monitor = {after_is_monitor}"
-        f"WHERE discID = {after_id}"
-    ))
+    res: sql.CursorResult
+
+    if after_is_monitor:
+        res = await _CONN.execute(text(
+            "INSERT INTO monitors (discID, monitor_data) VALUES "
+            f"({after_id}, (0, 0))"
+        ))
+    else:
+        res = await _CONN.execute(text(
+            f"DELETE FROM monitors WHERE discID = {after_id}"
+        ))
 
     return res.rowcount > 0
-    
+
 
 @connection_execute
 async def db_thread_update(

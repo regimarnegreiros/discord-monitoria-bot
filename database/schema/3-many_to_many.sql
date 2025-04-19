@@ -22,3 +22,9 @@ CREATE TABLE IF NOT EXISTS semester_subject (
     CHECK (stats_questions_check(question_data))
 );
 /* 20241, mdc119, (15, 10, 8) */
+
+CREATE TABLE IF NOT EXISTS semester_users (
+    mapID SERIAL PRIMARY KEY,
+    semesterID BIGINT NOT NULL REFERENCES semester(semesterID),
+    discID BIGINT NOT NULL REFERENCES users(discID)
+);
