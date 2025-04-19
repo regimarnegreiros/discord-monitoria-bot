@@ -29,12 +29,8 @@ async def db_new_user(_CONN: aio.AsyncConnection, userID: int) -> bool:
     """
     Insere um novo usuário no banco de dados
     """
-<<<<<<< HEAD
-    user: disc.Member = get_client().get_guild(get_first_server_id()).get_member(userID)
-=======
     user: disc.Member = (get_client().get_guild(get_first_server_id())
                                      .get_member(userID))
->>>>>>> 23215af (Setup para tabela de monitores; Tag 'Outro' como materia)
 
     try:
         res: sql.CursorResult = await _CONN.execute(text(
