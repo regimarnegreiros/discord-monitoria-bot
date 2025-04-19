@@ -1,18 +1,18 @@
 import os
 import discord
-from discord.ext import commands
 from dotenv import load_dotenv
 
-from settings.config import PREFIX
 from bot.client_instance import get_client
+from tools.json_config import load_json, ensure_config_exists
 
 # Carregamento do arquivo .env
 load_dotenv(dotenv_path='settings/.env')
 TOKEN = os.getenv('TOKEN')
 
-# Obtendo a instancia global de client
+# Obtendo a instância global de client
 client = get_client()
 
+# Função para carregar os cogs
 async def load_cogs():
     """Carrega todos os cogs presentes na pasta 'cogs'."""
     for arquivo in os.listdir('cogs'):
@@ -22,6 +22,7 @@ async def load_cogs():
             except Exception as e:
                 print(f'Erro ao carregar cog {arquivo}: {e}')
 
+# Comando de ping
 @client.tree.command(name="ping", description="Responde o usuário com pong.")
 async def ping(interaction: discord.Interaction):
     """Comando que responde 'Pong 🏓' ao usuário."""
@@ -30,15 +31,23 @@ async def ping(interaction: discord.Interaction):
 @client.event
 async def on_ready():
     """Evento acionado quando o bot está pronto para usar."""
+    # Garante que o arquivo de configuração existe
+    ensure_config_exists()
+    
+    # Carrega os cogs
     await load_cogs()
     await client.tree.sync()
+
+    # Carrega o status do bot
+    status = load_json().get("bot_status", {})
     await client.change_presence(
-        status=discord.Status.do_not_disturb, 
+        status=discord.Status.do_not_disturb,
         activity=discord.Streaming(
-            name=f"/ajuda", 
-            url="https://www.youtube.com/watch?v=SECVGN4Bsgg"
+            name=status.get("activity_name"),
+            url=status.get("streaming_url")
         )
     )
+
     print(f'Conectado como {client.user} (ID: {client.user.id})')
 
 # Rodando o bot

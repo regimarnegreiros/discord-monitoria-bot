@@ -1,7 +1,6 @@
 import discord
 
 from tools.checks import check_guild_forum_thread
-from settings.config import GUILD_ID, FORUM_CHANNEL_ID
 
 async def get_users_message_count_in_thread(thread_id: int):
     """Retorna um dicionário com os IDs dos usuários e a quantidade de mensagens que cada um enviou em uma thread específica."""

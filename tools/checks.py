@@ -4,8 +4,13 @@ from discord import (
     Interaction, Guild, Thread, Member
 )
 
-from settings.config import ADMIN_ROLE_ID, GUILD_ID, FORUM_CHANNEL_ID, MONITOR_ROLE_ID
 from bot.client_instance import get_client
+from tools.json_config import load_json, get_first_server_id
+
+# Função auxiliar para obter as configurações de um servidor
+def get_server_config(guild_id):
+    data = load_json()
+    return data.get(str(guild_id), None)
 
 # Função para verificar se o bot está no servidor
 def check_guild(client, guild_id) -> (Guild | None):
@@ -33,103 +38,87 @@ def check_forum_channel(guild, forum_id) -> (ForumChannel | None):
 
 # Função para verificar se a thread existe no canal
 async def check_thread(forum_channel, thread_id) -> (tuple[(Thread | None), bool]):
-    # Primeiro, tentamos verificar se a thread existe
     thread = forum_channel.get_thread(thread_id)
     was_archived = False
 
     if not thread:
-        # Se não encontramos a thread ativa, verificamos se ela está arquivada
         print("Thread não encontrada. Buscando threads arquivadas")
-
-        # Obtendo todas as threads arquivadas do canal de fórum
         archived_threads = {
-            thread.id: thread async for thread in forum_channel
-                                                  .archived_threads(limit=None)
+            thread.id: thread async for thread in forum_channel.archived_threads(limit=None)
         }
-        
-        # Procurando pela thread arquivada
-        try:
-            archived_thread = archived_threads[thread_id]
-        except KeyError:
+        thread = archived_threads.get(thread_id)
+
+        if not thread:
             print("Thread não encontrada.")
-            return (thread, was_archived) # None, False
+            return (None, was_archived)
 
         print(f"Thread arquivada encontrada: {thread_id}")
-
-        # Se a thread está arquivada, tentamos reabri-la
-        await archived_thread.edit(archived=False)
-            
-        print(
-            f"A thread {thread_id} foi reaberta"
-            " para acessar o histórico de mensagens."
-        )
-
-        thread = archived_thread # Atualizando thread para ser a reaberta
+        await thread.edit(archived=False)
+        print(f"A thread {thread_id} foi reaberta para acessar o histórico de mensagens.")
         was_archived = True
-        
+
     return (thread, was_archived)
 
-async def check_guild_forum_thread(thread_id) -> (tuple[(Thread | None), bool]):
-    was_archived = False
-    thread = None
+# Verifica se a thread está num fórum do servidor
+async def check_guild_forum_thread(thread_id, guild_id=None) -> tuple[Thread | None, bool]:
+    if not guild_id:
+        guild_id = get_first_server_id()
+        if not guild_id:
+            print("Nenhum servidor encontrado no arquivo JSON.")
+            return (None, False)
 
-    # Verifica se o bot está no servidor
+    config = get_server_config(guild_id)
+    if not config:
+        print(f"Configurações não encontradas para o servidor {guild_id}")
+        return (None, False)
+
     client = get_client()
-    guild = check_guild(client, GUILD_ID)
+    guild = check_guild(client, guild_id)
     if not guild:
-        return (thread, was_archived)
+        return (None, False)
 
-    # Verifica se o fórum exite
-    forum_channel = check_forum_channel(guild, FORUM_CHANNEL_ID)
+    forum_channel = check_forum_channel(guild, config["FORUM_CHANNEL_ID"])
     if not forum_channel:
-        return (thread, was_archived)
+        return (None, False)
 
-    # Verifica se a thread existe
-    thread, was_archived = await check_thread(forum_channel, thread_id)
-    return (thread, was_archived)
+    return await check_thread(forum_channel, thread_id)
 
 # Função para verificar se o usuário possui a role de admin
 async def check_admin_role(interaction: Interaction) -> bool:
+    guild_id = interaction.guild.id
+    config = get_server_config(guild_id)
+    if not config:
+        await interaction.response.send_message("Configurações do servidor não encontradas.", ephemeral=True)
+        return False
+
     user = interaction.user
-    if ADMIN_ROLE_ID not in [role.id for role in user.roles]:
+    if config["ADMIN_ROLE_ID"] not in [role.id for role in user.roles]:
         await interaction.response.send_message(
-                "Você não tem permissão para usar este comando.",
-                ephemeral=True)
+            "Você não tem permissão para usar este comando.",
+            ephemeral=True
+        )
         return False
     return True
 
+# Verificar se o membro tem cargo de monitor
 async def check_monitor(member: Member) -> bool:
-    """
-    Função que verifica se o membro tem o cargo de monitor e se está no servidor correto.
-    
-    :param member: O objeto 'discord.Member' do usuário que queremos verificar.
-    :return: True se o usuário tiver o cargo de monitor no servidor correto, False caso contrário.
-    """
-    # Verifica se o membro está no servidor correto
-    if member.guild.id != GUILD_ID:
+    config = get_server_config(member.guild.id)
+    if not config:
         return False
 
-    # Verifica se o membro tem o cargo de monitor no servidor específico
-    role = discord.utils.get(member.guild.roles, id=MONITOR_ROLE_ID)
-    
-    if role and role in member.roles:
-        return True
-    else:
+    if member.guild.id != int(member.guild.id):
         return False
 
+    role = discord.utils.get(member.guild.roles, id=config["MONITOR_ROLE_ID"])
+    return role in member.roles if role else False
+
+# Verifica se a thread pertence ao fórum correto
 async def check_thread_object(thread: Thread) -> bool:
-    """
-    Verifica se a thread foi criada no servidor e canal de fórum específicos.
+    config = get_server_config(thread.guild.id)
+    if not config:
+        return False
 
-    Args:
-        thread (Thread): O objeto Thread a ser verificado.
-
-    Returns:
-        bool: Retorna True se a thread for do servidor e canal de fórum especificados, 
-              caso contrário, retorna False.
-    """
-    is_correct_guild = thread.guild.id == GUILD_ID
-    is_correct_channel = thread.parent_id == FORUM_CHANNEL_ID
+    is_correct_channel = thread.parent_id == config["FORUM_CHANNEL_ID"]
     is_forum_channel = isinstance(thread.parent, ForumChannel)
 
-    return is_correct_guild and is_correct_channel and is_forum_channel
+    return is_correct_channel and is_forum_channel
