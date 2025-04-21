@@ -1,5 +1,6 @@
 import os
 import json
+from datetime import date
 
 # Define o caminho do arquivo JSON como constante
 JSON_FILE_PATH = "settings/config.json"
@@ -15,8 +16,8 @@ DEFAULT_CONFIG = {
         "MONITOR_ROLE_ID": None,
         "ADMIN_ROLE_ID": None,
         "SOLVED_TAG_ID": None,
-        "SEMESTER": 1,
-        "YEAR": 2025
+        "SEMESTER": date.today().month // 7 + 1,
+        "YEAR": date.today().year
     }
 }
 

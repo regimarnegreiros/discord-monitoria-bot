@@ -105,28 +105,71 @@ CREATE OR REPLACE TRIGGER user_thread_init
 AFTER INSERT OR DELETE ON thread
 FOR EACH ROW EXECUTE FUNCTION user_thread_init();
 
-CREATE OR REPLACE FUNCTION user_monitor() RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION monitors_update() RETURNS TRIGGER AS $$
+DECLARE
+    current    RECORD;
 BEGIN
-    IF NEW.is_monitor = TRUE THEN
+    SELECT
+        floor(EXTRACT(MONTH FROM CURRENT_TIMESTAMP) / 7) + 1
+        AS semester,
+        EXTRACT(YEAR FROM CURRENT_TIMESTAMP) AS year
+    INTO current;
+
+    IF (TG_OP = 'INSERT') THEN
         UPDATE semester
             SET monitors = array_append(monitors, NEW.discID)
-        WHERE
-            semester_year = EXTRACT(YEAR FROM CURRENT_DATE) AND
-            semester = CASE WHEN EXTRACT(MONTH FROM CURRENT_DATE) <= 6
-                       THEN 1 ELSE 2 END;
-    ELSIF (OLD.is_monitor = TRUE AND NEW.is_monitor = FALSE) THEN
+        WHERE semester = current.semester
+              AND year = current.year;
+    ELSE
         UPDATE semester
-            SET monitors = array_remove(monitors, NEW.discID)
-        WHERE
-            semester_year = EXTRACT(YEAR FROM CURRENT_DATE) AND
-            semester = CASE WHEN EXTRACT(MONTH FROM CURRENT_DATE) <= 6
-                       THEN 1 ELSE 2 END;
+            SET monitors = array_remove(monitors, OLD.discID)
+        WHERE semester = current.semester
+              AND year = current.year;
+        RETURN OLD;
     END IF;
-    
+
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE TRIGGER user_monitor
-AFTER INSERT OR UPDATE ON users
-FOR EACH ROW EXECUTE FUNCTION user_monitor();
+CREATE OR REPLACE TRIGGER monitors_insert
+AFTER INSERT ON monitors
+FOR EACH ROW EXECUTE FUNCTION monitors_update();
+
+CREATE OR REPLACE TRIGGER monitors_delete
+BEFORE DELETE ON monitors
+FOR EACH ROW EXECUTE FUNCTION monitors_update();
+
+CREATE OR REPLACE FUNCTION semester_dump() RETURNS TRIGGER AS $$
+DECLARE
+    previous    RECORD;
+BEGIN
+    SELECT sem.semester, sem.semester_year, sem.monitors INTO previous
+    FROM semester sem
+    WHERE sem.semester = 3 - NEW.semester
+    AND sem.semester_year = NEW.semester_year - (NEW.semester % 2);
+
+    UPDATE semester sem SET monitors = previous.monitors
+    WHERE sem.semester = NEW.semester
+    AND sem.semester_year = NEW.semester_year;
+
+    /* salva dados de duvida como JSON, ignora materias sem duvida */
+    UPDATE semester SET subject_data = sub.jdata FROM (
+        SELECT jsonb_agg(jsonb_build_object(
+            'subject_id', subjectid,
+            'name', subject_name,
+            'data', questions_data
+        )) AS jdata FROM subjects WHERE questions_data <> (0,0,0)) AS sub
+    WHERE semester = previous.semester
+    AND semester_year = previous.semester_year;
+
+    /* reset dos dados para novo semestre */
+    UPDATE subjects SET questions_data = (0,0,0);
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER semester_dump
+AFTER INSERT ON semester
+FOR EACH ROW EXECUTE FUNCTION semester_dump();

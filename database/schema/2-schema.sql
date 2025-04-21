@@ -3,13 +3,13 @@
 CREATE TABLE IF NOT EXISTS subjects (
     subjectID VARCHAR(7) PRIMARY KEY,
     subject_name VARCHAR(100) NOT NULL,
-    questions_data STATS_QUESTIONS NOT NULL
+    questions_data STATS_QUESTIONS NOT NULL,
     CHECK (stats_questions_check(questions_data))
 ); /* ex.: (15, POO, (0, 0, 0)); on_new_semester: export questions_data somewhere, 0's on original materia(questions_data) */
 
 CREATE TABLE IF NOT EXISTS users (
     discID BIGINT PRIMARY KEY,
-    questions_data STATS_QUESTIONS NOT NULL
+    questions_data STATS_QUESTIONS NOT NULL,
     CHECK (stats_questions_check(questions_data))
 );
 
@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS semester (
     semester_year INT,
     semester INT,
     monitors BIGINT[],
+    subject_data JSONB,
     CHECK (semester BETWEEN 1 AND 2),
     CHECK (semester_year >= 2023)
 );

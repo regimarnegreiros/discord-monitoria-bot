@@ -11,7 +11,6 @@ from tools.checks import check_monitor
 from datetime import date
 
 ENGINE: sql.Engine = aio.create_async_engine(com.DATABASE_URL)
-METADATA:sql.MetaData = sql.MetaData()
 
 def connection_execute(db_func):
     """
@@ -51,14 +50,12 @@ async def db_new_user(_CONN: aio.AsyncConnection, userID: int) -> bool:
                 f"({userID}, (0, 0))"
             ))
         except IntegrityError:
-            pass
+            await _CONN.rollback()
 
     return res.rowcount > 0
 
 @connection_execute
-async def db_new_semester(
-    _CONN: aio.AsyncConnection
-) -> None:
+async def db_new_semester(_CONN: aio.AsyncConnection) -> None:
     """
     Registra novo semestre
 
@@ -68,12 +65,12 @@ async def db_new_semester(
     curr_date: date = date.today()
     current: dict[str, int] = {
         "year": curr_date.year,
-        "semester": round(curr_date.month / 12) + 1
+        "semester": curr_date.month // 7 + 1 # month < 7: 1; else 2
     }
     previous: dict[str, int] = {
-        "year": (current["year"] if current["semester"] == 2
-                 else current["year"] - 1),
-        "semester": 1 if current["semester"] == 2 else 2
+        "year": current["year"] - (current["semester"] % 2),
+        "semester": 3 - current["semester"]
+        # year: year - 1 if semester = 1; semester: 2 if 1, 1 if 2
     }
 
     await _CONN.execute(text(
@@ -91,7 +88,13 @@ async def db_new_semester(
         f"AND semester = {previous['semester']}"
     ))
 
-    
+@connection_execute
+async def db_semester_info(
+    _CONN: aio.AsyncConnection,
+    semester: int,
+    year: int
+) -> dict:
+    ...
 
 @connection_execute
 async def db_thread_delete(_CONN: aio.AsyncConnection, threadID: int) -> bool:

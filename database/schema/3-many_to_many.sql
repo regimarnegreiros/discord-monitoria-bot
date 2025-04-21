@@ -14,17 +14,4 @@ CREATE TABLE IF NOT EXISTS tag_thread (
     CONSTRAINT unique_tags UNIQUE (threadID, tagID)
 );
 
-CREATE TABLE IF NOT EXISTS semester_subject (
-    mapID SERIAL PRIMARY KEY,
-    semesterID BIGINT NOT NULL REFERENCES semester(semesterID),
-    subjectID VARCHAR(7) NOT NULL REFERENCES subjects(subjectID),
-    question_data STATS_QUESTIONS NOT NULL,
-    CHECK (stats_questions_check(question_data))
-);
 /* 20241, mdc119, (15, 10, 8) */
-
-CREATE TABLE IF NOT EXISTS semester_users (
-    mapID SERIAL PRIMARY KEY,
-    semesterID BIGINT NOT NULL REFERENCES semester(semesterID),
-    discID BIGINT NOT NULL REFERENCES users(discID)
-);
