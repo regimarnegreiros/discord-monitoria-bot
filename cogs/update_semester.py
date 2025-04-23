@@ -1,18 +1,20 @@
 import discord
 from discord.ext import commands, tasks
 from datetime import datetime, time
-import pytz
+from zoneinfo import ZoneInfo
 
 from tools.json_config import load_json, save_json
+
+TZINFO = ZoneInfo("America/Sao_Paulo")
 
 class UpdateSemester(commands.Cog):
     def __init__(self, client):
         self.client = client
         self.verify_semester.start()
 
-    @tasks.loop(time=time(hour=15, minute=00)) # 15 - 3 = 12h (horário de São Paulo)
+    @tasks.loop(time=time(hour=12, minute=00, tzinfo=TZINFO)) # 15 - 3 = 12h (horário de São Paulo)
     async def verify_semester(self):
-        now = datetime.now(pytz.timezone("America/Sao_Paulo"))
+        now = datetime.now(TZINFO)
         data = load_json()
 
         for guild_id, config in data.items():
@@ -24,9 +26,9 @@ class UpdateSemester(commands.Cog):
 
             current_year = now.year
             start_1 = datetime(current_year, sem1["month"], sem1["day"], 
-                               tzinfo=pytz.timezone("America/Sao_Paulo"))
+                               tzinfo=TZINFO)
             start_2 = datetime(current_year, sem2["month"], sem2["day"], 
-                               tzinfo=pytz.timezone("America/Sao_Paulo"))
+                               tzinfo=TZINFO)
 
             if now < start_1:
                 new_semester = 2
