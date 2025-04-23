@@ -31,12 +31,24 @@ async def ping(interaction: discord.Interaction):
 @client.event
 async def on_ready():
     """Evento acionado quando o bot está pronto para usar."""
+
+    # Presença inicial de "ligando"
+    await client.change_presence(
+        status=discord.Status.idle,
+        activity=discord.Game(name="Ligando...")
+    )
+
     # Garante que o arquivo de configuração existe
     ensure_config_exists()
     
     # Carrega os cogs
     await load_cogs()
     await client.tree.sync()
+
+    # Executa a verificação de semestre após carregar os cogs
+    cog = client.get_cog("UpdateSemester")
+    if cog:
+        await cog.verify_semester()
 
     # Carrega o status do bot
     status = load_json().get("bot_status", {})
