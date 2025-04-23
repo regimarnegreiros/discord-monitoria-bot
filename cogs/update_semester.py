@@ -38,10 +38,10 @@ class UpdateSemester(commands.Cog):
                 new_semester = 2
                 new_year = current_year
 
-            antigo_semestre = config.get("SEMESTER")
-            antigo_ano = config.get("YEAR")
+            before_semester = config.get("SEMESTER")
+            before_year = config.get("YEAR")
 
-            if antigo_semestre != new_semester or antigo_ano != new_year:
+            if before_semester != new_semester or before_year != new_year:
                 config["SEMESTER"] = new_semester
                 config["YEAR"] = new_year
                 print(f"Servidor {guild_id}: Semestre atualizado para {new_semester}/{new_year}")
