@@ -38,6 +38,12 @@ async def on_ready():
     await load_cogs()
     await client.tree.sync()
 
+    # Executa a verificação de semestre após carregar os cogs
+    cog = client.get_cog("UpdateSemester")
+    if cog:
+        await cog.verify_semester()
+        print("Verificação de semestre executada manualmente.")
+
     # Carrega o status do bot
     status = load_json().get("bot_status", {})
     await client.change_presence(

@@ -5,7 +5,15 @@ from datetime import date
 # Define o caminho do arquivo JSON como constante
 JSON_FILE_PATH = "settings/config.json"
 
-# Conteúdo padrão
+# Configurações padrão de início de semestre
+SEMESTER_STARTS = {
+    "SEMESTER_1_START": {"day": 20, "month": 1},
+    "SEMESTER_2_START": {"day": 15, "month": 7}
+}
+
+CURRENT_SEMESTER = date.today().month // 7 + 1
+
+# Configuração padrão do JSON
 DEFAULT_CONFIG = {
     "bot_status": {
         "activity_name": "/ajuda",
@@ -16,8 +24,9 @@ DEFAULT_CONFIG = {
         "MONITOR_ROLE_ID": None,
         "ADMIN_ROLE_ID": None,
         "SOLVED_TAG_ID": None,
-        "SEMESTER": date.today().month // 7 + 1,
-        "YEAR": date.today().year
+        "SEMESTER": CURRENT_SEMESTER,
+        "YEAR": date.today().year,
+        **SEMESTER_STARTS
     }
 }
 
@@ -48,11 +57,14 @@ def add_server(guild_id):
         "FORUM_CHANNEL_ID": None,
         "MONITOR_ROLE_ID": None,
         "ADMIN_ROLE_ID": None,
-        "SOLVED_TAG_ID": None
+        "SOLVED_TAG_ID": None,
+        "SEMESTER": CURRENT_SEMESTER,
+        "YEAR": date.today().year,
+        **SEMESTER_STARTS
     }
 
     save_json(data)
-    print(f"Servidor com ID {guild_id} adicionado com valores vazios!")
+    print(f"Servidor com ID {guild_id} adicionado com valores padrão!")
 
 # Remover um servidor
 def remove_server(guild_id):
@@ -106,13 +118,30 @@ def update_bot_status(activity_name=None, streaming_url=None):
     save_json(data)
     print(f"Status do bot atualizado com sucesso!")
 
+def update_semester_dates(guild_id, semester_num, day, month):
+    if semester_num not in [1, 2]:
+        print("Número de semestre inválido. Use 1 ou 2.")
+        return
+
+    data = load_json()
+
+    if str(guild_id) not in data:
+        print(f"O servidor com ID {guild_id} não foi encontrado.")
+        return
+
+    key = f"SEMESTER_{semester_num}_START"
+    data[str(guild_id)][key] = {"day": day, "month": month}
+
+    save_json(data)
+    print(f"Início do semestre {semester_num} do servidor {guild_id} atualizado para {day}/{month}.")
+
 # Garante que o arquivo de configuração exista
 def ensure_config_exists():
     if not os.path.exists(JSON_FILE_PATH):
         os.makedirs(os.path.dirname(JSON_FILE_PATH), exist_ok=True)
         with open(JSON_FILE_PATH, "w") as f:
             json.dump(DEFAULT_CONFIG, f, indent=4)
-        print("Arquivo de configuração criado com bot_status padrão.")
+        print("Arquivo de configuração criado com valores padrão.")
 
 # Retorna o primeiro ID de servidor encontrado no JSON (ignorando bot_status)
 def get_first_server_id() -> int | None:
