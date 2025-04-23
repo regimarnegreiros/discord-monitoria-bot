@@ -12,7 +12,7 @@ class UpdateSemester(commands.Cog):
         self.client = client
         self.verify_semester.start()
 
-    @tasks.loop(time=time(hour=12, minute=00, tzinfo=TZINFO)) # 15 - 3 = 12h (horário de São Paulo)
+    @tasks.loop(time=time(hour=12, minute=00, tzinfo=TZINFO))
     async def verify_semester(self):
         now = datetime.now(TZINFO)
         data = load_json()
