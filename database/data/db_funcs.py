@@ -228,7 +228,7 @@ def db_nuke() -> None:
 
     from os import name, system
 
-    if os.name == "posix":
+    if name == "posix":
         CMD = "sudo -u postgres psql -U postgres -c"
     else:
         CMD = f"psql postgres://postgres:{com.PASSW}@localhost:5432/postgres -c"
