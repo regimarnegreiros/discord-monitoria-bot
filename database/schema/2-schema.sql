@@ -5,12 +5,15 @@ CREATE TABLE IF NOT EXISTS subjects (
     subject_name VARCHAR(100) NOT NULL,
     questions_data STATS_QUESTIONS NOT NULL,
     CHECK (stats_questions_check(questions_data))
-); /* ex.: (15, POO, (0, 0, 0)); on_new_semester: export questions_data somewhere, 0's on original materia(questions_data) */
+);
 
 CREATE TABLE IF NOT EXISTS users (
     discID BIGINT PRIMARY KEY,
+    is_monitor BOOLEAN NOT NULL,
     questions_data STATS_QUESTIONS NOT NULL,
-    CHECK (stats_questions_check(questions_data))
+    monitor_data MONITOR_STATS,
+    CHECK (stats_questions_check(questions_data)),
+    CHECK (monitor_data_check(monitor_data))
 );
 
 CREATE TABLE IF NOT EXISTS thread ( /* thread de duvida */
@@ -35,13 +38,4 @@ CREATE TABLE IF NOT EXISTS semester (
     subject_data JSONB,
     CHECK (semester BETWEEN 1 AND 2),
     CHECK (semester_year >= 2023)
-);
-
-CREATE TABLE IF NOT EXISTS monitors (
-    monitorID SERIAl UNIQUE NOT NULL,
-    discID BIGINT UNIQUE NOT NULL,
-    monitor_data MONITOR_STATS NOT NULL
-    CHECK (monitor_data_check(monitor_data)),
-    PRIMARY KEY (monitorID, discID),
-    FOREIGN KEY (discID) REFERENCES users(discID) ON DELETE CASCADE
 );

@@ -8,7 +8,6 @@ import discord as disc
 from bot.client_instance import get_client
 from tools.json_config import get_first_server_id
 from tools.checks import check_monitor
-from datetime import date
 
 ENGINE: sql.Engine = aio.create_async_engine(com.DATABASE_URL)
 
@@ -26,31 +25,32 @@ def connection_execute(db_func):
 @connection_execute
 async def db_new_user(_CONN: aio.AsyncConnection, userID: int) -> bool:
     """
-    Insere um novo usuário no banco de dados
+    Insere um novo usuário no banco de dados ou incrementa total de dúvidas.  
+    Chamado a cada criação de thread
     """
     user: disc.Member = (get_client().get_guild(get_first_server_id())
                                      .get_member(userID))
 
     try:
-        res: sql.CursorResult = await _CONN.execute(text(
-            "INSERT INTO users VALUES "
-            f"({userID}, (1, 0, 0));"
-        ))
+        res: sql.CursorResult
+        if not (await check_monitor(user)):
+            res  = await _CONN.execute(text(
+                "INSERT INTO users "
+                "(dicsID, is_monitor, questions_data) VALUES "
+                f"({userID}, FALSE, (1, 0, 0));"
+            ))
+        else:
+            res  = await _CONN.execute(text(
+                "INSERT INTO users VALUES "
+                f"({userID}, FALSE, (1, 0, 0), (0, 0));"
+            ))
     except IntegrityError:
         await _CONN.rollback()
         res = await _CONN.execute(text(
-            "UPDATE users SET questions_data.total ="
-                        " (questions_data).total + 1 "
+            "UPDATE users SET questions_data.total = "
+            "(questions_data).total + 1 "
             f"WHERE discID = {userID}"
         ))
-    if await check_monitor(user):
-        try:
-            res2: sql.CursorResult = await _CONN.execute(text(
-                "INSERT INTO monitors (discID, monitor_data) VALUES "
-                f"({userID}, (0, 0))"
-            ))
-        except IntegrityError:
-            await _CONN.rollback()
 
     return res.rowcount > 0
 
@@ -58,34 +58,13 @@ async def db_new_user(_CONN: aio.AsyncConnection, userID: int) -> bool:
 async def db_new_semester(_CONN: aio.AsyncConnection) -> None:
     """
     Registra novo semestre
-
-    Na mudança de semestre, copia lista de monitores do semestre anterior.
     """
 
-    curr_date: date = date.today()
-    current: dict[str, int] = {
-        "year": curr_date.year,
-        "semester": curr_date.month // 7 + 1 # month < 7: 1; else 2
-    }
-    previous: dict[str, int] = {
-        "year": current["year"] - (current["semester"] % 2),
-        "semester": 3 - current["semester"]
-        # year: year - 1 if semester = 1; semester: 2 if 1, 1 if 2
-    }
+    current: dict[str, int] = com.get_semester()
 
     await _CONN.execute(text(
         "INSERT INTO semester (semester_year, semester) VALUES"
         f"({current['year']}, {current['semester']})"
-    ))
-
-    await _CONN.execute(text(
-        "UPDATE semester"
-        "SET monitors = "
-            "(SELECT monitors FROM semester "
-            f"WHERE semester_year = {previous['year']}"
-            f"AND semester = {previous['semester']})"
-        f"WHERE semester_year = {previous['year']} "
-        f"AND semester = {previous['semester']}"
     ))
 
 @connection_execute
@@ -214,3 +193,28 @@ async def db_thread_create(
             res = False
     
     return res
+
+
+@connection_execute
+async def db_monitors(
+    _CONN: aio.AsyncConnection
+) -> list[dict[int, dict[str, int]]]:
+    """
+    Retorna os monitores do semestre atual e seus dados de suporte,
+    ordenados por quantidade de dúvidas resolvidas
+    """
+
+    res: list[tuple[str]] = (await _CONN.execute(text(
+        "SELECT discID, monitor_data FROM monitors "
+        "ORDER BY monitor_data.solved DESC"
+    ))).fetchall()
+
+    ret: list[dict[int, dict[str, int]]] = []
+
+    for entry in res:
+        monitor_data: tuple[int] | dict[str, int] = eval(entry[1])
+        monitor_data = {"answered": monitor_data[0], "solved": monitor_data[1]}
+
+        ret.append({"monitorID": int(entry[0]), "monitor_data": monitor_data})
+    
+    return ret

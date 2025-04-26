@@ -115,29 +115,27 @@ BEGIN
         EXTRACT(YEAR FROM CURRENT_TIMESTAMP) AS year
     INTO current;
 
-    IF (TG_OP = 'INSERT') THEN
+    IF ((TG_OP = 'INSERT' AND NEW.is_monitor = TRUE)
+        OR (TG_OP = 'UPDATE' AND OLD.is_monitor = FALSE
+                             AND NEW.is_monitor = TRUE)) THEN
         UPDATE semester
             SET monitors = array_append(monitors, NEW.discID)
         WHERE semester = current.semester
-              AND year = current.year;
-    ELSE
+          AND semester_year = current.year;
+    ELSIF (TG_OP = 'UPDATE' AND OLD.is_monitor = TRUE
+                            AND NEW.is_monitor = FALSE) THEN
         UPDATE semester
             SET monitors = array_remove(monitors, OLD.discID)
         WHERE semester = current.semester
-              AND year = current.year;
-        RETURN OLD;
+          AND semester_year = current.year;
     END IF;
 
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE TRIGGER monitors_insert
-AFTER INSERT ON monitors
-FOR EACH ROW EXECUTE FUNCTION monitors_update();
-
-CREATE OR REPLACE TRIGGER monitors_delete
-BEFORE DELETE ON monitors
+CREATE OR REPLACE TRIGGER monitors_update
+AFTER INSERT OR UPDATE ON users
 FOR EACH ROW EXECUTE FUNCTION monitors_update();
 
 CREATE OR REPLACE FUNCTION semester_dump() RETURNS TRIGGER AS $$

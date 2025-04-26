@@ -2,6 +2,7 @@ import os
 from os import sep as SEP
 from sys import stderr
 from dotenv import load_dotenv
+from datetime import date
 
 WD: str
 DBWD: str
@@ -11,6 +12,35 @@ DATABASE_URL: str | None
 
 def eprint(*args, **kwargs) -> None:
     print(*args, file=stderr, **kwargs)
+
+def get_semester(
+    option: str = "current"
+) -> dict[str, int] | dict[str, dict[str, int]]:
+    """
+    Retorna semestre atual, anterior, ou ambos  
+
+    ### Opções:
+    - ``"current"``: padrão, retorna semestre atual  
+    - ``"previous"``: retorna semestre anterior  
+    - ``"both"``: retorna semestre atual e anterior
+    """
+
+    curr_date: date = date.today()
+    current: dict[str, int] = {
+        "year": curr_date.year,
+        "semester": curr_date.month // 7 + 1 # month < 7: 1; else 2
+    }
+    previous: dict[str, int] = {
+        "year": current["year"] - (current["semester"] % 2),
+        "semester": 3 - current["semester"]
+        # year: year - 1 if semester = 1; semester: 2 if 1, 1 if 2
+    }
+    both: dict[str, dict[str, int]] = {
+        "current": current,
+        "previous": previous
+    }
+
+    return both.get(option, current)
 
 WD = (os.path.dirname(os.path.abspath(__file__))
             .removesuffix(f"{SEP}database{SEP}data") + SEP)
