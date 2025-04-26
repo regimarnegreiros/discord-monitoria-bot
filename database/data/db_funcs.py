@@ -218,3 +218,23 @@ async def db_monitors(
         ret.append({"monitorID": int(entry[0]), "monitor_data": monitor_data})
     
     return ret
+
+def db_nuke() -> None:
+    """
+    Recria o banco de dados. Todos os dados são perdidos.
+
+    **TOME CUIDADO EXTREMO AO UTILIZAR ESSA FUNÇÃO**
+    """
+
+    from os import name, system
+
+    if os.name == "posix":
+        CMD = "sudo -u postgres psql -U postgres -c"
+    else:
+        CMD = f"psql postgres://postgres:{com.PASSW}@localhost:5432/postgres -c"
+    
+    system(f"{CMD} \"DROP DATABASE db_monitoring;\"")
+    system(f"{CMD} \"DROP OWNED BY monitor_admin CASCADE;\"")
+    system(f"{CMD} \"DROP user monitor_admin;\"")
+
+    import db_setup
