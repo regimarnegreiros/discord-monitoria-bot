@@ -26,7 +26,6 @@ class InsertHistory(commands.Cog):
         None # Resetar o Banco de dados
 
         posts_id = await get_forum_posts(interaction.guild_id)
-        print(posts_id)
 
         try:
             for index, post_id in enumerate(posts_id, start=1):

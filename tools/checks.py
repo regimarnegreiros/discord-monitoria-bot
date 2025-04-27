@@ -42,19 +42,19 @@ async def check_thread(forum_channel, thread_id) -> (tuple[(Thread | None), bool
     was_archived = False
 
     if not thread:
-        print("Thread não encontrada. Buscando threads arquivadas")
+        # print("Thread não encontrada. Buscando threads arquivadas")
         archived_threads = {
             thread.id: thread async for thread in forum_channel.archived_threads(limit=None)
         }
         thread = archived_threads.get(thread_id)
 
         if not thread:
-            print("Thread não encontrada.")
+            # print("Thread não encontrada.")
             return (None, was_archived)
 
-        print(f"Thread arquivada encontrada: {thread_id}")
+        # print(f"Thread arquivada encontrada: {thread_id}")
         await thread.edit(archived=False)
-        print(f"A thread {thread_id} foi reaberta para acessar o histórico de mensagens.")
+        # print(f"A thread {thread_id} foi reaberta para acessar o histórico de mensagens.")
         was_archived = True
 
     return (thread, was_archived)
