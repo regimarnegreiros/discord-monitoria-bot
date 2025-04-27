@@ -1,6 +1,6 @@
 import os
 import json
-from datetime import date
+from datetime import date, datetime, timezone
 
 # Define o caminho do arquivo JSON como constante
 JSON_FILE_PATH = "settings/config.json"
@@ -152,3 +152,50 @@ def get_first_server_id() -> int | None:
         return None
     
     return int(guild_keys[0])
+
+def get_semester_and_year(guild_id, raw_date) -> tuple[int, int]:
+    data = load_json()
+
+    # Garantir que o guild_id seja string
+    guild_id = str(guild_id)
+
+    if guild_id not in data:
+        raise ValueError(f"Servidor com ID {guild_id} não encontrado no JSON.")
+
+    # Garantir que a data seja um objeto datetime
+    if isinstance(raw_date, str):
+        try:
+            parsed_date = datetime.fromisoformat(raw_date.replace(" UTC", ""))
+        except ValueError:
+            raise ValueError(f"Formato de data inválido: {raw_date}")
+    elif isinstance(raw_date, datetime):
+        parsed_date = raw_date
+    else:
+        raise TypeError(f"Tipo inválido para raw_date: {type(raw_date)}. Esperado str ou datetime.")
+
+    year = parsed_date.year
+
+    # Tornar as datas de semestre também timezone-aware (UTC)
+    semester_1_start = datetime(
+        year=year,
+        month=data[guild_id]["SEMESTER_1_START"]["month"],
+        day=data[guild_id]["SEMESTER_1_START"]["day"],
+        tzinfo=timezone.utc
+    )
+    semester_2_start = datetime(
+        year=year,
+        month=data[guild_id]["SEMESTER_2_START"]["month"],
+        day=data[guild_id]["SEMESTER_2_START"]["day"],
+        tzinfo=timezone.utc
+    )
+
+    # Verificar o semestre
+    if parsed_date >= semester_2_start:
+        semester = 2
+    elif parsed_date >= semester_1_start:
+        semester = 1
+    else:
+        semester = 2
+        year -= 1
+
+    return semester, year

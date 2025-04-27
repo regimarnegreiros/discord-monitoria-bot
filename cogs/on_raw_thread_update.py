@@ -16,8 +16,16 @@ class OnRawThreadUpdate(commands.Cog):
     async def on_raw_thread_update(self, payload: discord.RawThreadUpdateEvent):
         """Escuta o evento de atualização de thread e realiza ações associadas."""
 
+        if payload.thread is None:
+            print("on_raw_thread_update: Thread não carregada no payload (possivelmente arquivada). Ignorando.")
+            return
+
+        if payload.thread.archived != payload.data.get("archived", not payload.thread.archived):
+            print("on_raw_thread_update: Mudança foi só arquivar ou desarquivar. Ignorando.")
+            return
+
         if not await check_thread_object(payload.thread):
-            print("Thread não pertence ao servidor e canal de fórum especificados.")
+            print("on_raw_thread_update: Thread não pertence ao servidor e canal de fórum especificados.")
             return
 
         # Obter informações atuais da thread no Discord
