@@ -114,6 +114,7 @@ CREATE OR REPLACE TRIGGER user_thread_init
 AFTER INSERT OR DELETE ON thread
 FOR EACH ROW EXECUTE FUNCTION user_thread_init();
 
+/*
 CREATE OR REPLACE FUNCTION monitors_update() RETURNS TRIGGER AS $$
 DECLARE
     current    RECORD;
@@ -146,6 +147,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE TRIGGER monitors_update
 AFTER INSERT OR UPDATE ON users
 FOR EACH ROW EXECUTE FUNCTION monitors_update();
+*/
 
 CREATE OR REPLACE FUNCTION semester_dump() RETURNS TRIGGER AS $$
 DECLARE
@@ -170,8 +172,18 @@ BEGIN
     WHERE semester = previous.semester
     AND semester_year = previous.semester_year;
 
+    UPDATE semester SET monitors = mon.jdata FROM (
+        SELECT jsonb_agg(jsonb_build_object(
+            'discID', discID,
+            'monitor_data', monitor_data
+        )) AS jdata FROM monitors) AS mon
+    WHERE semester = previous.semester
+    AND semester_year = previous.year;
+
     /* reset dos dados para novo semestre */
     UPDATE subjects SET questions_data = (0,0,0);
+    UPDATE users SET questions_data = (0,0,0);
+    UPDATE users SET monitor_data = (0,0) WHERE monitor_data IS NOT NULL;
 
     RETURN NEW;
 END;

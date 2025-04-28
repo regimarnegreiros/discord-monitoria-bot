@@ -47,6 +47,7 @@ def connection_execute(db_func):
 async def db_new_user(
     _CONN: aio.AsyncConnection, userID: int,
     is_creator: bool = True,
+    is_monitor: bool | None = None
 ) -> bool:
     """
     Insere um novo usuário no banco de dados ou incrementa total de dúvidas.  
@@ -54,11 +55,13 @@ async def db_new_user(
     """
     user: disc.Member = (get_client().get_guild(get_first_server_id())
                                      .get_member(userID))
+    if is_monitor == None:
+        is_monitor = await check_monitor(user) # checa para semestre atual
 
     try:
         res: sql.CursorResult
 
-        if not (await check_monitor(user)):
+        if not is_monitor:
             res  = await _CONN.execute(text(
                 "INSERT INTO users "
                 "(dicsID, is_monitor, questions_data) VALUES "
@@ -67,16 +70,30 @@ async def db_new_user(
         else:
             res  = await _CONN.execute(text(
                 "INSERT INTO users VALUES "
-                f"({userID}, FALSE, ({int(is_creator)}, 0, 0), "
+                f"({userID}, TRUE, ({int(is_creator)}, 0, 0), "
                 f"({int(not is_creator)}, 0));"
             ))
     except IntegrityError:
         await _CONN.rollback()
-        res = await _CONN.execute(text(
-            "UPDATE users SET questions_data.total = "
-            "(questions_data).total + 1 "
-            f"WHERE discID = {userID}"
-        ))
+
+        if not is_monitor:
+            res = await _CONN.execute(text(
+                "UPDATE users SET questions_data.total = "
+                "(questions_data).total + 1 "
+                f"WHERE discID = {userID}"
+            ))
+        else:
+            data: tuple[str]
+            if is_creator:
+                data = ("questions_data.total", "(questions_data).total")
+            else:
+                data = ("monitor_data.answered", "(monitor_data).answered")
+
+            res = await _CONN.execute(text(
+                f"UPDATE users SET {data[0]} = "
+                f"{data[1]} + 1 "
+                f"WHERE discID = {userID}"
+            ))
 
     return res.rowcount > 0
 
@@ -130,25 +147,22 @@ async def db_monitor_update(
     """
     Atualiza o status de monitor do usuário no banco de dados.
 
-    Lista de monitores é atualizada automaticamente.
-
     Pareado com on_guild_role_update
     """
 
-    res: sql.CursorResult
+    res1: sql.CursorResult
+    res2: sql.CursorResult
 
-    if after_is_monitor:
-        res = await _CONN.execute(text(
-            "INSERT INTO monitors (discID, monitor_data) VALUES "
-            f"({after_id}, (0, 0))"
-        ))
-    else:
-        res = await _CONN.execute(text(
-            f"DELETE FROM monitors WHERE discID = {after_id}"
-        ))
+    res1 = await _CONN.execute(text(
+        f"UPDATE users SET is_monitor = {after_is_monitor} "
+        f"WHERE discID = {after_id}"
+    ))
+    res2 = await _CONN.execute(text(
+        f"UPDATE users SET monitor_data = (0, 0) "
+        f"WHERE discID = {after_id} AND monitor_data IS NULL"
+    ))
 
-    return res.rowcount > 0
-
+    return res1.rowcount > 0 and res2.rowcount > 0
 
 @connection_execute
 async def db_thread_update(
@@ -238,7 +252,9 @@ async def db_thread_create(
 
 @connection_execute
 async def db_monitors(
-    _CONN: aio.AsyncConnection
+    _CONN: aio.AsyncConnection,
+    semester: int | None = None,
+    year: int | None = None
 ) -> list[dict[int, dict[str, int]]] | list:
     """
     Retorna os monitores do semestre atual e seus dados de suporte,
@@ -246,13 +262,30 @@ async def db_monitors(
     caso haja erro ou não haja monitores
     """
 
-    res: list[tuple[str]] = (await _CONN.execute(text(
-        "SELECT discID, monitor_data FROM monitors "
-        "ORDER BY monitor_data.answered DESC, "
-        "monitor_data.solved DESC"
-    ))).fetchall()
+    res: list[tuple[str]]
 
-    ret: list[dict[int, dict[str, int]]] = []
+    if (semester, year) == (None, None):
+        res = (await _CONN.execute(text(
+            "SELECT discID, monitor_data FROM monitors "
+            "ORDER BY monitor_data.answered DESC, "
+            "monitor_data.solved DESC"
+        ))).fetchall()
+    else:
+        aux: list[tuple[str]] = (await _CONN.execute(text(
+            "SELECT mon -> 'discID' discID, mon -> 'monitor_data' monitor_data "
+            "FROM semester AS sem, "
+            "jsonb_array_elements(sem.monitors) AS mon "
+            f"WHERE sem.semester = {semester} AND sem.semester_year = {year} "
+            "ORDER BY monitor_data -> 'answered' DESC, "
+            "monitor_data -> 'solved' DESC"
+        ))).fetchall()
+        
+        res = [
+            (entry[0], f"{tuple(map(int, (eval(entry[1])).values()))}")
+            for entry in aux
+        ]
+
+    ret: list[dict[int, dict[str, int]]] | list = []
 
     for entry in res:
         monitor_data: tuple[int] | dict[str, int] = eval(entry[1])
@@ -261,6 +294,25 @@ async def db_monitors(
         ret.append({"monitorID": int(entry[0]), "monitor_data": monitor_data})
     
     return ret
+
+@connection_execute
+async def db_available_semesters(
+    _CONN: aio.AsyncConnection
+) -> tuple[int, list[tuple[int]] | list]:
+    """
+    Retorna uma tupla com a quantidade de semestres disponíveis
+    e quais são.
+    """
+
+    res: sql.CursorResult = await _CONN.execute(text(
+        "SELECT semester_year, semester FROM semester"
+    ))
+
+    rowcount: int = res.rowcount
+    rows: list[tuple[str | int]] = res.fetchall()
+    rows = [tuple(map(int, i)) for i in rows]
+
+    return (rowcount, rows)
 
 @connection_execute
 async def db_semester_info(

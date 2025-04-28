@@ -24,7 +24,7 @@ class InsertHistory(commands.Cog):
         # Verificar se o usuário possui a role de admin
         if not await check_admin_role(interaction):
             return
-        
+
         db.db_nuke() # Resetar o Banco de dados
 
         posts_id = await get_forum_posts(interaction.guild_id)
@@ -32,7 +32,10 @@ class InsertHistory(commands.Cog):
 
         try:
             for index, post_id in enumerate(posts_id, start=1):
-                thread_info = await get_thread_infos(post_id) # Adicionar informações da thread no banco
+                print(f"Processando... \033[36mPost {index}\033[0m de {len(posts_id)}")
+                print("Extraindo thread...")
+
+                thread_info = await get_thread_infos(post_id)
                 tags: list[int] = [tags["id"] for tags in thread_info["applied_tags"]]
                 await sleep(1)
 
@@ -42,11 +45,12 @@ class InsertHistory(commands.Cog):
                 if (semester_temp, year_temp) != (semester, year):
                     await db.db_new_semester(semester_temp, year_temp)
                     semester, year = semester_temp, year_temp
-                
+
+                # Adicionar informações da thread no banco
                 await db.db_thread_create(
                     thread_info["id"], thread_info["owner_id"],
                     *tags, thread_info["created_at"])
-                
+
                 # Colocar os usuários que participaram da thread no banco
                 users = await get_users_message_count_in_thread(post_id)
                 await sleep(1)
@@ -58,23 +62,26 @@ class InsertHistory(commands.Cog):
                         print(f"Membro {user_id} não encontrado no servidor.")
                         continue  # Pular para o próximo usuário
 
-                    if user.id != thread_info["owner_id"]:
-                        # usuario que nao seja criador adicionado
-                        await db.db_new_user(user.id, is_creator=False)
-
                     data = load_json()
                     server = data[str(interaction.guild_id)]
                     actual_year = server["YEAR"]
                     actual_semester = server["SEMESTER"]
-                    if thread_info['owner_id'] == user:
-                        continue # Usuário que criou a thread (post)
-                    elif await check_monitor(user) and year == actual_year and semester == actual_semester:
-                        None # Adicionar como monitor no banco
-                    else:
-                        None # Adicionar como usuário no banco (Semestres passados)
 
-                print(f"Processando... \033[36mPost {index}\033[0m de {len(posts_id)}")
-                print(f"\033[32mPost {post_id} adicionado com sucesso ao banco junto com suas informações.\033[0m")
+                    if thread_info['owner_id'] == user.id:
+                        continue # Usuário que criou a thread (post)
+                    elif (await check_monitor(user)
+                          and year == actual_year
+                          and semester == actual_semester):
+                        # Adicionar como monitor no banco
+                        await db.db_new_user(
+                            user.id, is_creator=False, is_monitor=True)
+                    else:
+                        # Adicionar como usuário no banco (Semestres passados)
+                        await db.db_new_user(
+                            user.id, is_creator=False, is_monitor=False)
+
+                print(f"\033[32mPost {post_id} adicionado com sucesso "
+                      "ao banco junto com suas informações.\033[0m")
 
         except Exception as e:
             print(e)
