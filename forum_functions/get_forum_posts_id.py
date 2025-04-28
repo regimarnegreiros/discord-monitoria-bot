@@ -5,7 +5,9 @@ from bot.client_instance import get_client
 from tools.checks import check_guild, check_forum_channel
 
 async def get_forum_posts(guild_id):
-    """Retorna uma lista com o ID de todas as postagens dentro de um canal de fórum, incluindo arquivadas."""
+    """Retorna uma lista com o ID de todas as postagens
+    dentro de um canal de fórum, incluindo arquivadas,
+    ordenadas por data de criação."""
     
     # Carregar as configurações do JSON
     data = load_json()
@@ -26,10 +28,12 @@ async def get_forum_posts(guild_id):
         return []
 
     # Obtém as threads ativas
-    post_ids = [thread.id for thread in forum_channel.threads]
+    post_ids = [(thread.id, thread.created_at) for thread in forum_channel.threads]
 
     # Obtém threads arquivadas
     async for thread in forum_channel.archived_threads(limit=None):
-        post_ids.append(thread.id)
+        post_ids.append((thread.id, thread.created_at))
+    
+    post_ids = [post[0] for post in sorted(post_ids, key=lambda elem: elem[1])]
 
     return post_ids

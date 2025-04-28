@@ -13,9 +13,14 @@ BEGIN
                     SET questions_data.solved = (questions_data).solved + 1
                 WHERE subjects.subjectID = rec.subjectID;
             END LOOP;
-            UPDATE users_on_thread ut
-                SET questions_data.solved = (questions_data).solved + 1
-            WHERE ut.threadID = NEW.threadID;
+            FOR rec IN SELECT t2.discID FROM user_thread t1
+                            LEFT JOIN users t2 ON t1.discID = t2.discID
+                        WHERE t1.threadID = NEW.threadID
+            LOOP
+                UPDATE users
+                    SET questions_data.solved = (questions_data).solved + 1
+                WHERE users.discID = rec.discID;
+            END LOOP;
         ELSE
             SELECT subjectID INTO rec FROM tags WHERE NEW.tagID = tags.tagID;
             UPDATE subjects
@@ -47,10 +52,14 @@ BEGIN
                         GREATEST((questions_data).total - 1, 0)
                 WHERE subjects.subjectID = rec.subjectID;
             END LOOP;
-            UPDATE users_on_thread ut
-                SET questions_data.solved =
+            FOR rec IN SELECT t2.discID FROM user_thread t1
+                            LEFT JOIN users t2 ON t1.discID = t2.discID
+                        WHERE t1.threadID = NEW.threadID
+            LOOP
+                UPDATE users SET questions_data.solved =
                     GREATEST((questions_data).solved - 1, 0)
-            WHERE ut.threadID = OLD.threadID;
+                WHERE users.discID = rec.threadID;
+            END LOOP;
         END IF;
     ELSIF (TG_OP = 'DELETE' AND TG_TABLE_NAME = 'thread') THEN
         UPDATE users

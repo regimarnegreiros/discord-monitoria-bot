@@ -7,6 +7,8 @@ from forum_functions.get_forum_posts_id import get_forum_posts
 from forum_functions.get_thread_infos import get_thread_infos
 from forum_functions.count_messages import get_users_message_count_in_thread
 from tools.json_config import get_semester_and_year, load_json
+import database.data.db_funcs as db
+from asyncio import sleep
 
 class InsertHistory(commands.Cog):
     def __init__(self, bot):
@@ -23,26 +25,43 @@ class InsertHistory(commands.Cog):
         if not await check_admin_role(interaction):
             return
         
-        None # Resetar o Banco de dados
+        db.db_nuke() # Resetar o Banco de dados
 
         posts_id = await get_forum_posts(interaction.guild_id)
+        semester, year = 0, 0
 
         try:
             for index, post_id in enumerate(posts_id, start=1):
                 thread_info = await get_thread_infos(post_id) # Adicionar informações da thread no banco
+                tags: list[int] = [tags["id"] for tags in thread_info["applied_tags"]]
+                await sleep(1)
 
-                semester, year = get_semester_and_year(
+                semester_temp, year_temp = get_semester_and_year(
                     interaction.guild_id, thread_info['created_at']) # Colocar a thread no semestre correto
+
+                if (semester_temp, year_temp) != (semester, year):
+                    await db.db_new_semester(semester_temp, year_temp)
+                    semester, year = semester_temp, year_temp
+                
+                await db.db_thread_create(
+                    thread_info["id"], thread_info["owner_id"],
+                    *tags, thread_info["created_at"])
                 
                 # Colocar os usuários que participaram da thread no banco
-                users = await get_users_message_count_in_thread(post_id) 
-                for user_id, _ in users.items():
+                users = await get_users_message_count_in_thread(post_id)
+                await sleep(1)
+
+                for user_id in users.keys():
                     try:
                         user = await interaction.guild.fetch_member(user_id)
                     except discord.NotFound:
                         print(f"Membro {user_id} não encontrado no servidor.")
                         continue  # Pular para o próximo usuário
-                    
+
+                    if user.id != thread_info["owner_id"]:
+                        # usuario que nao seja criador adicionado
+                        await db.db_new_user(user.id, is_creator=False)
+
                     data = load_json()
                     server = data[str(interaction.guild_id)]
                     actual_year = server["YEAR"]

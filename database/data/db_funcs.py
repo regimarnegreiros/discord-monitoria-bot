@@ -8,8 +8,29 @@ import discord as disc
 from bot.client_instance import get_client
 from tools.json_config import get_first_server_id
 from tools.checks import check_monitor
+from datetime import datetime
 
 ENGINE: sql.Engine = aio.create_async_engine(com.DATABASE_URL)
+
+def db_nuke() -> None:
+    """
+    Recria o banco de dados. Todos os dados são perdidos.
+
+    **TOME CUIDADO EXTREMO AO UTILIZAR ESSA FUNÇÃO**
+    """
+
+    from os import name, system
+
+    if name == "posix":
+        CMD = "sudo -u postgres psql -U postgres -c"
+    else:
+        CMD = f"psql postgres://postgres:{com.PASSW}@localhost:5432/postgres -c"
+    
+    system(f"{CMD} \"DROP DATABASE db_monitoring;\"")
+    system(f"{CMD} \"DROP OWNED BY monitor_admin CASCADE;\"")
+    system(f"{CMD} \"DROP user monitor_admin;\"")
+
+    import db_setup
 
 def connection_execute(db_func):
     """
@@ -23,7 +44,10 @@ def connection_execute(db_func):
     return execute
 
 @connection_execute
-async def db_new_user(_CONN: aio.AsyncConnection, userID: int) -> bool:
+async def db_new_user(
+    _CONN: aio.AsyncConnection, userID: int,
+    is_creator: bool = True,
+) -> bool:
     """
     Insere um novo usuário no banco de dados ou incrementa total de dúvidas.  
     Chamado a cada criação de thread
@@ -33,6 +57,7 @@ async def db_new_user(_CONN: aio.AsyncConnection, userID: int) -> bool:
 
     try:
         res: sql.CursorResult
+
         if not (await check_monitor(user)):
             res  = await _CONN.execute(text(
                 "INSERT INTO users "
@@ -42,7 +67,8 @@ async def db_new_user(_CONN: aio.AsyncConnection, userID: int) -> bool:
         else:
             res  = await _CONN.execute(text(
                 "INSERT INTO users VALUES "
-                f"({userID}, FALSE, (1, 0, 0), (0, 0));"
+                f"({userID}, FALSE, ({int(is_creator)}, 0, 0), "
+                f"({int(not is_creator)}, 0));"
             ))
     except IntegrityError:
         await _CONN.rollback()
@@ -55,25 +81,33 @@ async def db_new_user(_CONN: aio.AsyncConnection, userID: int) -> bool:
     return res.rowcount > 0
 
 @connection_execute
-async def db_new_semester(_CONN: aio.AsyncConnection) -> None:
+async def db_monitor_answered(
+    _CONN: aio.AsyncConnection, threadID: int) -> bool:
+    ...
+
+@connection_execute
+async def db_new_semester(
+    _CONN: aio.AsyncConnection, semester: int = -1, year: int = -1
+) -> None:
     """
-    Registra novo semestre
+    Registra novo semestre. Se ``semester`` e ``year`` forem -1,
+    registra semestre atual.
     """
 
-    current: dict[str, int] = com.get_semester()
+    if (semester, year) == (-1, -1):
+        current: dict[str, int] = com.get_semester()
+
+        await _CONN.execute(text(
+            "INSERT INTO semester (semester_year, semester) VALUES"
+            f"({current['year']}, {current['semester']})"
+        ))
+    elif semester not in range(1, 3) or year < 2023:
+        raise ValueError("invalid semester or year")
 
     await _CONN.execute(text(
         "INSERT INTO semester (semester_year, semester) VALUES"
-        f"({current['year']}, {current['semester']})"
+        f"({year}, {semester})"
     ))
-
-@connection_execute
-async def db_semester_info(
-    _CONN: aio.AsyncConnection,
-    semester: int,
-    year: int
-) -> dict:
-    ...
 
 @connection_execute
 async def db_thread_delete(_CONN: aio.AsyncConnection, threadID: int) -> bool:
@@ -164,13 +198,19 @@ async def db_thread_create(
     _CONN: aio.AsyncConnection,
     threadID: int,
     creatorID: int,
-    *tagIDs: int
+    *tagIDs: int,
+    timestamp: datetime|str = "CURRENT_TIMESTAMP"
 ) -> bool:
     """
     Salva informações de criação da thread no banco
 
     Pareado com on_thread_create
     """
+
+    if not (isinstance(timestamp, datetime)
+            and timestamp == "CURRENT_TIMESTAMP"):
+        timestamp == "CURRENT_TIMESTAMP"
+
     res: bool = True
     
     if not await db_new_user(creatorID):
@@ -179,7 +219,7 @@ async def db_thread_create(
     
     thread_insert: sql.CursorResult = await _CONN.execute(text(
         "INSERT INTO thread (threadID, threadCreatorID, creationDate)"
-        f" VALUES ({threadID}, {creatorID}, CURRENT_TIMESTAMP)"
+        f" VALUES ({threadID}, {creatorID}, {timestamp})"
     ))
 
     if thread_insert.rowcount == 0:
@@ -194,19 +234,22 @@ async def db_thread_create(
     
     return res
 
+# Funcoes de consulta
 
 @connection_execute
 async def db_monitors(
     _CONN: aio.AsyncConnection
-) -> list[dict[int, dict[str, int]]]:
+) -> list[dict[int, dict[str, int]]] | list:
     """
     Retorna os monitores do semestre atual e seus dados de suporte,
-    ordenados por quantidade de dúvidas resolvidas
+    ordenados por quantidade de dúvidas resolvidas, ou uma lista vazia
+    caso haja erro ou não haja monitores
     """
 
     res: list[tuple[str]] = (await _CONN.execute(text(
         "SELECT discID, monitor_data FROM monitors "
-        "ORDER BY monitor_data.solved DESC"
+        "ORDER BY monitor_data.answered DESC, "
+        "monitor_data.solved DESC"
     ))).fetchall()
 
     ret: list[dict[int, dict[str, int]]] = []
@@ -219,22 +262,10 @@ async def db_monitors(
     
     return ret
 
-def db_nuke() -> None:
-    """
-    Recria o banco de dados. Todos os dados são perdidos.
-
-    **TOME CUIDADO EXTREMO AO UTILIZAR ESSA FUNÇÃO**
-    """
-
-    from os import name, system
-
-    if name == "posix":
-        CMD = "sudo -u postgres psql -U postgres -c"
-    else:
-        CMD = f"psql postgres://postgres:{com.PASSW}@localhost:5432/postgres -c"
-    
-    system(f"{CMD} \"DROP DATABASE db_monitoring;\"")
-    system(f"{CMD} \"DROP OWNED BY monitor_admin CASCADE;\"")
-    system(f"{CMD} \"DROP user monitor_admin;\"")
-
-    import db_setup
+@connection_execute
+async def db_semester_info(
+    _CONN: aio.AsyncConnection,
+    semester: int,
+    year: int
+) -> dict:
+    ...

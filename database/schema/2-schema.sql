@@ -34,8 +34,9 @@ CREATE TABLE IF NOT EXISTS semester (
     semesterID SERIAL PRIMARY KEY,
     semester_year INT,
     semester INT,
-    monitors BIGINT[],
+    monitors JSONB,
     subject_data JSONB,
     CHECK (semester BETWEEN 1 AND 2),
-    CHECK (semester_year >= 2023)
+    CHECK (semester_year >= 2023),
+    CONSTRAINT proper_pair UNIQUE (semester_year, semester)
 );
