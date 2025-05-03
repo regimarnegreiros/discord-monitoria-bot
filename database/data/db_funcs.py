@@ -399,8 +399,11 @@ async def db_monitors(
     res: list[tuple[int, str]] | list[tuple[list[dict[str, Any]]]]
     monitor_data: tuple[int] | dict[str, int]
     ret: list[dict[int, dict[str, int]]] | list = []
+    guild_data: dict = load_json()[str(get_first_server_id())]
+    current_semester: int = guild_data["SEMESTER"]
+    current_year: int = guild_data["YEAR"]
 
-    if (semester, year) == (None, None):
+    if (semester, year) in ((None, None), (current_semester, current_year)):
         res = (await _CONN.execute(text(
             "SELECT discID, monitor_data FROM monitors mon "
             "ORDER BY (mon.monitor_data).answered DESC, "
