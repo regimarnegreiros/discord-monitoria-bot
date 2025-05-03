@@ -33,24 +33,31 @@ class MonitorRanking(commands.Cog):
         )
 
         async def select_callback(interaction_select: discord.Interaction):
+            ranking: list[dict[int, dict[str, int]]] | list
+
             selected_value = interaction_select.data["values"][0]
             year, semester = map(int, selected_value.split("-"))
-
             ranking = await db_monitors(semester=semester, year=year)
 
             if not ranking:
-                await interaction_select.response.send_message("Nenhum monitor encontrado para esse semestre.")
+                await interaction_select.response.send_message(
+                    "Nenhum monitor encontrado para esse semestre.")
                 return
 
-            msg_lines = [f"📊 **Ranking de Monitores - {semester}º Semestre de {year}**\n"]
+            msg_lines: list[str] = ["📊 **Ranking de Monitores - "
+                         f"{semester}º Semestre de {year}**\n"]
             for idx, monitor in enumerate(ranking, 1):
+                monitorID: int = list(monitor.keys())[0]
+
                 msg_lines.append(
-                    f"**{idx}.** <@{monitor['monitorID']}> - "
-                    f"Respondidas: {monitor['monitor_data']['answered']} | "
-                    f"Resolvidas: {monitor['monitor_data']['solved']}"
+                    f"**{idx}.** <@{monitorID}> - "
+                    f"Respondidas: {monitor[monitorID]['answered']} | "
+                    f"Resolvidas: {monitor[monitorID]['solved']}"
                 )
 
-            await interaction_select.response.send_message("\n".join(msg_lines), allowed_mentions=discord.AllowedMentions(users=False))
+            await interaction_select.response.send_message(
+                "\n".join(msg_lines),
+                allowed_mentions=discord.AllowedMentions(users=False))
 
         select.callback = select_callback
 

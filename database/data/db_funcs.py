@@ -15,6 +15,10 @@ from typing import Any
 
 ENGINE: aio.AsyncEngine = aio.create_async_engine(com.DATABASE_URL)
 
+type db_funcs_t = Callable[
+    [aio.AsyncConnection, Any],
+    Awaitable[bool] | Awaitable[list]]
+
 def db_nuke() -> None:
     """
     Recria o banco de dados. Todos os dados são perdidos.
@@ -36,7 +40,7 @@ def db_nuke() -> None:
     import database.data.db_setup
 
 def connection_execute(
-    db_func: Callable[[aio.AsyncConnection, Any], Awaitable[bool]]
+    db_func: db_funcs_t
 ):
     """
     Realiza operações no banco com as funções pelo gerenciador de contexto
@@ -392,36 +396,51 @@ async def db_monitors(
     caso haja erro ou não haja monitores
     """
 
-    res: list[tuple[str]]
+    res: list[tuple[int, str]] | list[tuple[list[dict[str, Any]]]]
+    monitor_data: tuple[int] | dict[str, int]
+    ret: list[dict[int, dict[str, int]]] | list = []
 
     if (semester, year) == (None, None):
         res = (await _CONN.execute(text(
-            "SELECT discID, monitor_data FROM monitors "
-            "ORDER BY monitor_data.answered DESC, "
-            "monitor_data.solved DESC"
+            "SELECT discID, monitor_data FROM monitors mon "
+            "ORDER BY (mon.monitor_data).answered DESC, "
+            "(mon.monitor_data).solved DESC"
         ))).fetchall()
+
+        if not res: return list()
+
+        for entry in res:
+            monitor_data = eval(entry[1])
+            monitor_data = {"answered": monitor_data[0], "solved": monitor_data[1]}
+
+            ret.append({int(entry[0]): monitor_data})
+    elif type(semester) == type(year) == int:
+        res = (await _CONN.execute(text(
+            "SELECT monitors FROM semester WHERE "
+            f"semester_year = {year} AND semester = {semester}"
+        ))).fetchall()
+
+        if not res[0][0]: return list()
+
+        for entry in res[0][0]:
+            ret.append({entry["discID"]: entry["monitor_data"]})
     else:
-        aux: list[tuple[str]] = (await _CONN.execute(text(
-            "SELECT mon -> 'discID' discID, mon -> 'monitor_data' monitor_data "
-            "FROM semester AS sem, "
-            "jsonb_array_elements(sem.monitors) AS mon "
-            f"WHERE sem.semester = {semester} AND sem.semester_year = {year} "
-            "ORDER BY monitor_data -> 'answered' DESC, "
-            "monitor_data -> 'solved' DESC"
-        ))).fetchall()
+        raise ValueError(
+            "Semester must be 1 or 2, year must be valid, "
+            "or both must be None"
+        )
 
-        res = [
-            (entry[0], f"{tuple(map(int, (eval(entry[1])).values()))}")
-            for entry in aux
-        ]
+    ret = list(filter(lambda x: all((list(x.values())[0]).values()), ret))
 
-    ret: list[dict[int, dict[str, int]]] | list = []
-
-    for entry in res:
-        monitor_data: tuple[int] | dict[str, int] = eval(entry[1])
-        monitor_data = {"answered": monitor_data[0], "solved": monitor_data[1]}
-
-        ret.append({"monitorID": int(entry[0]), "monitor_data": monitor_data})
+    if ret:
+        ret = sorted(
+            ret,
+            key=lambda x: list(x.values())[0]["answered"], reverse=True
+        )
+        ret = sorted(
+            ret,
+            key=lambda x: list(x.values())[0]["solved"], reverse=True
+        )
 
     return ret
 
