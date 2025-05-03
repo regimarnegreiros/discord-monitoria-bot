@@ -53,6 +53,7 @@ class InsertHistory(commands.Cog):
 
                 # Colocar os usuários que participaram da thread no banco
                 users = await get_users_message_count_in_thread(post_id)
+                not_users: set[int] = set()
                 await sleep(1)
 
                 for user_id in users.keys():
@@ -60,6 +61,7 @@ class InsertHistory(commands.Cog):
                         user = await interaction.guild.fetch_member(user_id)
                     except discord.NotFound:
                         print(f"Membro {user_id} não encontrado no servidor.")
+                        not_users.add(user_id)
                         continue  # Pular para o próximo usuário
 
                     data = load_json()
@@ -81,7 +83,7 @@ class InsertHistory(commands.Cog):
                             user.id, is_creator=False, is_monitor=False)
 
                 await db.db_thread_answered(
-                    post_id, users=set(users.keys()),
+                    post_id, users=(set(users.keys()) - not_users),
                     is_old_semester=(
                         (year, semester) == (current_year, current_semester)
                     )
@@ -91,7 +93,6 @@ class InsertHistory(commands.Cog):
                       "ao banco junto com suas informações.\033[0m")
 
         except Exception as e:
-            print(e)
             await interaction.followup.send(
                 "Banco de dados resetado; houve erro na inserção de dados"
             )

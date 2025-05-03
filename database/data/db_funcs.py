@@ -105,7 +105,7 @@ async def db_new_user(
                 f"WHERE discID = {userID}"
             ))).fetchall()[0][0]:
                 await _CONN.execute(text(
-                    "UPDATE users SET is_monitor = TRUE"
+                    "UPDATE users SET is_monitor = TRUE "
                     f"WHERE discID = {userID}"
                 ))
 
@@ -356,7 +356,6 @@ async def db_thread_create(
 
     res: bool = True
     _, tagIDs = com.tag_reorder(*tagIDs)
-    print(tagIDs)
 
     if not await db_new_user(creatorID, is_monitor=is_monitor):
         com.eprint("User could not be registered")
