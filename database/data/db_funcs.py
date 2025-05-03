@@ -12,6 +12,7 @@ from tools.checks import check_monitor
 from datetime import datetime
 from collections.abc import Callable, Awaitable
 from typing import Any
+from asyncpg import Record
 
 ENGINE: aio.AsyncEngine = aio.create_async_engine(com.DATABASE_URL)
 
@@ -396,7 +397,9 @@ async def db_monitors(
     caso haja erro ou não haja monitores
     """
 
-    res: list[tuple[int, str]] | list[tuple[list[dict[str, Any]]]]
+    res: (list[tuple[int, str]]
+        | list[tuple[list[dict[str, Any]]]]
+        | list[tuple[int, Record]])
     monitor_data: tuple[int] | dict[str, int]
     ret: list[dict[int, dict[str, int]]] | list = []
     guild_data: dict = load_json()[str(get_first_server_id())]
@@ -413,8 +416,17 @@ async def db_monitors(
         if not res: return list()
 
         for entry in res:
-            monitor_data = eval(entry[1])
-            monitor_data = {"answered": monitor_data[0], "solved": monitor_data[1]}
+            if type(entry[1]) == Record:
+                monitor_data = {
+                    "answered": entry[1]["answered"],
+                    "solved": entry[1]["solved"],
+                }
+            else:
+                monitor_data = eval(entry[1])
+                monitor_data = {
+                    "answered": monitor_data[0],
+                    "solved": monitor_data[1]
+                }
 
             ret.append({int(entry[0]): monitor_data})
     elif type(semester) == type(year) == int:
@@ -433,7 +445,9 @@ async def db_monitors(
             "or both must be None"
         )
 
-    ret = list(filter(lambda x: all((list(x.values())[0]).values()), ret))
+    ret = list(filter(lambda x: tuple(
+                            (list(x.values())[0]).values()
+                      ) != (None, None), ret))
 
     if ret:
         ret = sorted(
