@@ -1,16 +1,19 @@
 import sqlalchemy as sql
-from sqlalchemy.dialects.postgresql import ARRAY as psql_arr, DATE as psql_DATE
 from sqlalchemy import text
 from sqlalchemy.ext import asyncio as aio
 from sqlalchemy.exc import IntegrityError
 from database.data import db_commons as com
 import discord as disc
 from bot.client_instance import get_client
-from tools.json_config import get_first_server_id
+from forum_functions.count_messages import get_users_message_count_in_thread
+from forum_functions.get_thread_infos import get_thread_infos
+from tools.json_config import get_first_server_id, load_json
 from tools.checks import check_monitor
 from datetime import datetime
+from collections.abc import Callable, Awaitable
+from typing import Any
 
-ENGINE: sql.Engine = aio.create_async_engine(com.DATABASE_URL)
+ENGINE: aio.AsyncEngine = aio.create_async_engine(com.DATABASE_URL)
 
 def db_nuke() -> None:
     """
@@ -25,23 +28,34 @@ def db_nuke() -> None:
         CMD = "sudo -u postgres psql -U postgres -c"
     else:
         CMD = f"psql postgres://postgres:{com.PASSW}@localhost:5432/postgres -c"
-    
+
     system(f"{CMD} \"DROP DATABASE db_monitoring;\"")
     system(f"{CMD} \"DROP OWNED BY monitor_admin CASCADE;\"")
     system(f"{CMD} \"DROP user monitor_admin;\"")
 
-    import db_setup
+    import database.data.db_setup
 
-def connection_execute(db_func):
+def connection_execute(
+    db_func: Callable[[aio.AsyncConnection, Any], Awaitable[bool]]
+):
     """
     Realiza operações no banco com as funções pelo gerenciador de contexto
     """
-    async def execute(*args, **kwargs):
+
+    _CONN: aio.AsyncConnection
+
+    async def execute(*args: Any, **kwargs: Any) -> bool:
+        res: bool
+
         async with ENGINE.connect() as _CONN:
             res = await db_func(_CONN, *args, **kwargs)
             await _CONN.commit()
+
         return res
+
     return execute
+
+# Funcoes de Escuta
 
 @connection_execute
 async def db_new_user(
@@ -53,35 +67,31 @@ async def db_new_user(
     Insere um novo usuário no banco de dados ou incrementa total de dúvidas.  
     Chamado a cada criação de thread
     """
-    user: disc.Member = (get_client().get_guild(get_first_server_id())
-                                     .get_member(userID))
+
+    user: disc.Member = com.user_id_to_member(userID)
+    res: sql.CursorResult | None = None
+
     if is_monitor == None:
         is_monitor = await check_monitor(user) # checa para semestre atual
 
     try:
-        res: sql.CursorResult
+        new_data: str = f"{userID}, {is_monitor}, ({int(is_creator)}, 0, 0)"
+        if is_monitor: new_data += f", ({int(not is_creator)}, 0)"
 
-        if not is_monitor:
-            res  = await _CONN.execute(text(
-                "INSERT INTO users "
-                "(dicsID, is_monitor, questions_data) VALUES "
-                f"({userID}, FALSE, (1, 0, 0));"
-            ))
-        else:
-            res  = await _CONN.execute(text(
-                "INSERT INTO users VALUES "
-                f"({userID}, TRUE, ({int(is_creator)}, 0, 0), "
-                f"({int(not is_creator)}, 0));"
-            ))
+        res = await _CONN.execute(text(
+            f"INSERT INTO users VALUES ({new_data})"
+        ))
+
     except IntegrityError:
         await _CONN.rollback()
 
         if not is_monitor:
-            res = await _CONN.execute(text(
-                "UPDATE users SET questions_data.total = "
-                "(questions_data).total + 1 "
-                f"WHERE discID = {userID}"
-            ))
+            if is_creator:
+                res = await _CONN.execute(text(
+                    "UPDATE users SET questions_data.total = "
+                    "(questions_data).total + 1 "
+                    f"WHERE discID = {userID}"
+                ))
         else:
             data: tuple[str]
             if is_creator:
@@ -89,29 +99,124 @@ async def db_new_user(
             else:
                 data = ("monitor_data.answered", "(monitor_data).answered")
 
+            # se nao estiver como monitor no banco, atualize
+            if not (await _CONN.execute(text(
+                "SELECT is_monitor FROM users "
+                f"WHERE discID = {userID}"
+            ))).fetchall()[0][0]:
+                await _CONN.execute(text(
+                    "UPDATE users SET is_monitor = TRUE"
+                    f"WHERE discID = {userID}"
+                ))
+
             res = await _CONN.execute(text(
                 f"UPDATE users SET {data[0]} = "
                 f"{data[1]} + 1 "
                 f"WHERE discID = {userID}"
             ))
 
-    return res.rowcount > 0
+    return True if res is None else res.rowcount > 0
 
 @connection_execute
-async def db_monitor_answered(
-    _CONN: aio.AsyncConnection, threadID: int) -> bool:
-    ...
+async def db_thread_answered(
+    _CONN: aio.AsyncConnection, threadID: int,
+    users: set[int] | None = None,
+    is_old_semester: bool = False
+) -> bool:
+    """
+    Checa se uma thread foi respondida.
+
+    Se sim, incrementa answered no monitor_data de monitores participantes,
+    questions_data das materias da thread e do criador da thread, e sincroniza
+    os participantes em user_thread com os da thread.
+
+    Returns:
+
+        Retorna ``True`` se monitor respondeu, ``False`` caso contrário
+            - (obs.: sempre retornará ``False`` para semestres passados)
+    """
+
+    userID: int
+    user: disc.Member | None
+    old_users: set[int] | list[tuple[int]]
+    tags: tuple[int]
+    tag: int
+    is_solved: bool
+
+    thread_info: dict = await get_thread_infos(threadID)
+    is_solved, tags = com.tag_reorder(
+        *[tag["id"] for tag in thread_info["applied_tags"]]
+    )
+    monitor_answered: bool = False
+
+    old_users = (await _CONN.execute(text(
+                    "SELECT discID FROM user_thread "
+                    f"WHERE threadID = {threadID}"
+                ))).fetchall()
+    old_users = {rec[0] for rec in old_users}
+
+    if not users:
+        users = set((await get_users_message_count_in_thread(threadID)).keys())
+
+    if ((is_old_semester and len(users) > 1)
+        or (not is_old_semester and len(users) == 2)):
+        await _CONN.execute(text(
+            "UPDATE users SET questions_data.answered "
+            "= (questions_data).answered + 1 "
+            f"WHERE discID = {thread_info['owner_id']}"
+        ))
+
+        iter_tags: tuple[int] = tags if not is_solved else tags[:-1]
+
+        for tag in iter_tags:
+            sub_query: str = (
+                f"SELECT subjectID FROM tags WHERE tagID = {tag}"
+            )
+            await _CONN.execute(text(
+                "UPDATE subjects "
+                "SET questions_data.answered = (questions_data).answered + 1 "
+                f"WHERE subjectID = ({sub_query})"
+            ))
+
+    for userID in users - old_users: # usuarios fora do banco
+        user = com.user_id_to_member(userID)
+        is_monitor: bool = await check_monitor(user)
+
+        if (not is_old_semester
+            and is_monitor):
+            monitor_answered = True
+            # incrementa respondidas p/ monitores
+            await _CONN.execute(text(
+                "UPDATE users SET monitor_data.answered "
+                "= (monitor_data).answered + 1 "
+                f"WHERE discID = {userID}"
+            ))
+
+        await _CONN.execute(text(
+            "INSERT INTO user_thread (discID, threadID) VALUES "
+            f"({userID}, {threadID})"
+        ))
+
+        await _CONN.execute(text(
+            "UPDATE users SET questions_data.answered "
+            "= (questions_data).answered + 1 "
+            f"WHERE discID = {userID}"
+        ))
+
+    return monitor_answered
 
 @connection_execute
 async def db_new_semester(
-    _CONN: aio.AsyncConnection, semester: int = -1, year: int = -1
-) -> None:
+    _CONN: aio.AsyncConnection,
+    semester: int | None = None,
+    year: int | None = None
+) -> bool:
     """
     Registra novo semestre. Se ``semester`` e ``year`` forem -1,
     registra semestre atual.
     """
 
-    if (semester, year) == (-1, -1):
+    if (semester, year) == (None, None):
         current: dict[str, int] = com.get_semester()
 
         await _CONN.execute(text(
@@ -134,7 +239,7 @@ async def db_thread_delete(_CONN: aio.AsyncConnection, threadID: int) -> bool:
     Pareado com on_raw_thread_delete
     """
 
-    res = await _CONN.execute(text(
+    res: sql.CursorResult = await _CONN.execute(text(
         f"DELETE FROM thread WHERE threadID = {threadID}"
     ))
     return res.rowcount > 0
@@ -184,6 +289,7 @@ async def db_thread_update(
         "SELECT tagID, threadID FROM tag_thread "
         f"WHERE threadID = {threadID}"
     ))
+    _, tagIDs = com.tag_reorder(*tagIDs)
 
     db_tags: list[sql.Row] = [row[0] for row in select.fetchall()]
 
@@ -221,19 +327,36 @@ async def db_thread_create(
     Pareado com on_thread_create
     """
 
+    ts_fmt: str
+    new_user: disc.Member | None = com.user_id_to_member(creatorID)
+    is_monitor: bool = await check_monitor(new_user)
+
     if not (isinstance(timestamp, datetime)
             and timestamp == "CURRENT_TIMESTAMP"):
-        timestamp == "CURRENT_TIMESTAMP"
+        timestamp = ts_fmt = "CURRENT_TIMESTAMP"
+    elif isinstance(timestamp, datetime):
+        now: datetime = datetime.now()
+
+        ts_fmt = "'" + f"{timestamp:%Y-%m-%d %H:%M:%S.%f}"[:-1] + "'"
+
+        # monitor somente no semestre atual
+        is_monitor = is_monitor and (
+            timestamp.month // 7 == now.month // 7
+            and timestamp.year == now.year
+        )
+        del now
 
     res: bool = True
-    
-    if not await db_new_user(creatorID):
+    _, tagIDs = com.tag_reorder(*tagIDs)
+    print(tagIDs)
+
+    if not await db_new_user(creatorID, is_monitor=is_monitor):
         com.eprint("User could not be registered")
         return False
-    
+
     thread_insert: sql.CursorResult = await _CONN.execute(text(
         "INSERT INTO thread (threadID, threadCreatorID, creationDate)"
-        f" VALUES ({threadID}, {creatorID}, {timestamp})"
+        f" VALUES ({threadID}, {creatorID}, {ts_fmt})"
     ))
 
     if thread_insert.rowcount == 0:
@@ -245,7 +368,7 @@ async def db_thread_create(
             f" VALUES ({tag}, {threadID})"
         ))).rowcount == 0:
             res = False
-    
+
     return res
 
 # Funcoes de consulta
@@ -279,7 +402,7 @@ async def db_monitors(
             "ORDER BY monitor_data -> 'answered' DESC, "
             "monitor_data -> 'solved' DESC"
         ))).fetchall()
-        
+
         res = [
             (entry[0], f"{tuple(map(int, (eval(entry[1])).values()))}")
             for entry in aux
@@ -292,7 +415,7 @@ async def db_monitors(
         monitor_data = {"answered": monitor_data[0], "solved": monitor_data[1]}
 
         ret.append({"monitorID": int(entry[0]), "monitor_data": monitor_data})
-    
+
     return ret
 
 @connection_execute
@@ -321,3 +444,9 @@ async def db_semester_info(
     year: int
 ) -> dict:
     ...
+
+@connection_execute
+async def db_user_info(_CONN, userID):
+    return (await _CONN.execute(text(
+        f"SELECT * from users where discID = {userID}"
+    ))).fetchall()
