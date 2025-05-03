@@ -7,7 +7,7 @@ import discord as disc
 from bot.client_instance import get_client
 from forum_functions.count_messages import get_users_message_count_in_thread
 from forum_functions.get_thread_infos import get_thread_infos
-from tools.json_config import get_first_server_id, load_json
+from tools.json_config import get_first_server_id, load_json, get_semester_and_year
 from tools.checks import check_monitor
 from datetime import datetime
 from collections.abc import Callable, Awaitable
@@ -335,14 +335,22 @@ async def db_thread_create(
             and timestamp == "CURRENT_TIMESTAMP"):
         timestamp = ts_fmt = "CURRENT_TIMESTAMP"
     elif isinstance(timestamp, datetime):
-        now: datetime = datetime.now()
+        server_id: int = get_first_server_id()
+        server_info: dict = load_json()[str(server_id)]
+        ts_semester, ts_year = get_semester_and_year(server_id, timestamp)
+        current_semester: int
+        current_year: int
+
+        current_semester, current_year = (
+            server_info["SEMESTER"], server_info["YEAR"]
+        )
 
         ts_fmt = "'" + f"{timestamp:%Y-%m-%d %H:%M:%S.%f}"[:-1] + "'"
 
         # monitor somente no semestre atual
         is_monitor = is_monitor and (
-            timestamp.month // 7 == now.month // 7
-            and timestamp.year == now.year
+            ts_semester == current_semester
+            and ts_year == current_year
         )
         del now
 
