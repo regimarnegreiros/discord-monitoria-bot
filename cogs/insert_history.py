@@ -20,6 +20,7 @@ class InsertHistory(commands.Cog):
         """Apaga o banco de dados e insere todo o histórico do servidor no banco de dados."""
 
         await interaction.response.defer()
+        progress_message = await interaction.followup.send("🎲 Resetando banco de dados...")
 
         # Verificar se o usuário possui a role de admin
         if not await check_admin_role(interaction):
@@ -32,6 +33,9 @@ class InsertHistory(commands.Cog):
 
         try:
             for index, post_id in enumerate(posts_id, start=1):
+                await progress_message.edit(
+                    content=f"📄 Processando post {index} de {len(posts_id)} (ID: {post_id})..."
+                )
                 print(f"Processando... \033[36mPost {index}\033[0m de {len(posts_id)}")
                 print("Extraindo thread...")
 
@@ -89,17 +93,15 @@ class InsertHistory(commands.Cog):
                     )
                 )
 
-                print(f"\033[32mPost {post_id} adicionado com sucesso "
-                      "ao banco junto com suas informações.\033[0m")
+                print(f"\033[32mPost {post_id} adicionado com sucesso ao banco.\033[0m")
 
         except Exception as e:
-            await interaction.followup.send(
-                "Banco de dados resetado; houve erro na inserção de dados"
+            await progress_message.edit(
+                content="❌ Banco de dados resetado; houve erro na inserção de dados."
             )
         else:
-            await interaction.followup.send(
-                "Banco de dados resetado e dados do histórico "
-                "do servidor adicionados ao banco"
+            await progress_message.edit(
+                content="✅ Banco de dados resetado e histórico inserido com sucesso!"
             )
 
 # Função para adicionar a cog ao bot
