@@ -34,11 +34,20 @@ def db_nuke() -> None:
     else:
         CMD = f"psql postgres://postgres:{com.PASSW}@localhost:5432/postgres -c"
 
-    system(f"{CMD} \"DROP DATABASE db_monitoring;\"")
-    system(f"{CMD} \"DROP OWNED BY monitor_admin CASCADE;\"")
-    system(f"{CMD} \"DROP user monitor_admin;\"")
+    while True: # as vezes, banco acaba nao sendo deletado; isso 
+        try:
+            ret: int = system(f"{CMD} \"DROP DATABASE db_monitoring;\"")
+            ret = system(f"{CMD} \"DROP OWNED BY monitor_admin CASCADE;\"")
+            ret = system(f"{CMD} \"DROP user monitor_admin;\"")
 
-    import database.data.db_setup
+            if ret != 0: raise Exception()
+
+            import database.data.db_setup
+        except:
+            pass
+        else:
+            break
+
 
 def connection_execute(
     db_func: db_funcs_t
@@ -357,7 +366,6 @@ async def db_thread_create(
             ts_semester == current_semester
             and ts_year == current_year
         )
-        del now
 
     res: bool = True
     _, tagIDs = com.tag_reorder(*tagIDs)

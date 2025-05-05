@@ -68,7 +68,7 @@ def tag_reorder(*tagIDs: int) -> tuple[bool, tuple[int]]:
         index: int = aux.index(solved_tag)
         aux[index], aux[-1] = aux[-1], aux[index]
         tagIDs = tuple(aux)
-    
+
     return (solved_tag in tagIDs, tagIDs)
 
 def user_id_to_member(
@@ -94,9 +94,10 @@ files = [dir_contents[0] + SEP + file
                     for file in dir_contents[2] if file.endswith(".sql")]
 files.sort(key=lambda file: file[file.rindex(SEP) + 1])
 
-
 if not load_dotenv(dotenv_path=f"{WD}settings{SEP}.env"):
     eprint("error loading environment variables")
     exit(1)
+
+del WD, DBWD, files
 
 PASSW, DATABASE_URL = os.getenv("DBPASSW"), os.getenv("DB_URL")
