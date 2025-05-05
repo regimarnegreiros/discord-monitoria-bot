@@ -34,19 +34,11 @@ def db_nuke() -> None:
     else:
         CMD = f"psql postgres://postgres:{com.PASSW}@localhost:5432/postgres -c"
 
-    while True: # as vezes, banco acaba nao sendo deletado; isso 
-        try:
-            ret: int = system(f"{CMD} \"DROP DATABASE db_monitoring WITH (FORCE);\"")
-            ret = system(f"{CMD} \"DROP OWNED BY monitor_admin CASCADE;\"")
-            ret = system(f"{CMD} \"DROP user monitor_admin;\"")
+    ret: int = system(f"{CMD} \"DROP DATABASE db_monitoring WITH (FORCE);\"")
+    ret = system(f"{CMD} \"DROP OWNED BY monitor_admin CASCADE;\"")
+    ret = system(f"{CMD} \"DROP user monitor_admin;\"")
 
-            if ret != 0: raise Exception()
-
-            import database.data.db_setup
-        except:
-            pass
-        else:
-            break
+    import database.data.db_setup
 
 
 def connection_execute(

@@ -98,6 +98,6 @@ if not load_dotenv(dotenv_path=f"{WD}settings{SEP}.env"):
     eprint("error loading environment variables")
     exit(1)
 
-del WD, DBWD, files
+del WD, DBWD
 
 PASSW, DATABASE_URL = os.getenv("DBPASSW"), os.getenv("DB_URL")
