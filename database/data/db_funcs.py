@@ -36,7 +36,7 @@ def db_nuke() -> None:
 
     while True: # as vezes, banco acaba nao sendo deletado; isso 
         try:
-            ret: int = system(f"{CMD} \"DROP DATABASE db_monitoring;\"")
+            ret: int = system(f"{CMD} \"DROP DATABASE db_monitoring WITH (FORCE);\"")
             ret = system(f"{CMD} \"DROP OWNED BY monitor_admin CASCADE;\"")
             ret = system(f"{CMD} \"DROP user monitor_admin;\"")
 
