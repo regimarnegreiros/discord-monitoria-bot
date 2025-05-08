@@ -81,8 +81,10 @@ async def db_new_user(
         is_monitor = await check_monitor(user) # checa para semestre atual
 
     try:
-        new_data: str = f"{userID}, {is_monitor}, ({int(is_creator)}, 0, 0)"
-        if is_monitor: new_data += f", ({int(not is_creator)}, 0)"
+        creator_val: int = int(is_creator)
+        new_data: str = (f"{userID}, {is_monitor}, "
+                         f"({creator_val}, 0, 0)")
+        if is_monitor: new_data += f", ({1- creator_val}, 0)"
 
         res = await _CONN.execute(text(
             f"INSERT INTO users VALUES ({new_data})"
@@ -127,7 +129,7 @@ async def db_new_user(
 async def db_thread_answered(
     _CONN: aio.AsyncConnection, threadID: int,
     users: set[int] | None = None,
-    is_old_semester: bool = False
+    semester_pair: tuple[int, int] = None
 ) -> bool:
     """
     Checa se uma thread foi respondida.
@@ -147,6 +149,8 @@ async def db_thread_answered(
     old_users: set[int] | list[tuple[int]]
     tags: tuple[int]
     tag: int
+    semester: int
+    year: int
     is_solved: bool
 
     thread_info: dict = await get_thread_infos(threadID)
@@ -154,6 +158,13 @@ async def db_thread_answered(
         *[tag["id"] for tag in thread_info["applied_tags"]]
     )
     monitor_answered: bool = False
+
+    server_info: dict = load_json()[str(get_first_server_id())]
+    current_pair: tuple[int, int] = (
+        server_info["SEMESTER"], server_info["YEAR"]
+    )
+    semester_pair: tuple[int, int] = tuple(sorted(semester_pair))
+    is_old_semester: bool = current_pair != semester_pair
 
     old_users = (await _CONN.execute(text(
                     "SELECT discID FROM user_thread "
@@ -183,20 +194,26 @@ async def db_thread_answered(
                 "SET questions_data.answered = (questions_data).answered + 1 "
                 f"WHERE subjectID = ({sub_query})"
             ))
+    
+    semester, year = semester_pair
+    semester_info: list[int] | list = (
+        com.MONITORS_OLD.get(year, {}).get(semester, [])
+    )
 
     for userID in users - old_users: # usuarios fora do banco
         user = com.user_id_to_member(userID)
         is_monitor: bool = await check_monitor(user)
 
-        if (not is_old_semester
-            and is_monitor):
+        # semestre atual e monitor ou monitor em 2o sem. 2024
+        if ((not is_old_semester and is_monitor)
+            or (is_old_semester and userID in semester_info)):
             monitor_answered = True
             # incrementa respondidas p/ monitores
-            await _CONN.execute(text(
-                "UPDATE users SET monitor_data.answered "
-                "= (monitor_data).answered + 1 "
-                f"WHERE discID = {userID}"
-            ))
+            # await _CONN.execute(text(
+            #     "UPDATE users SET monitor_data.answered "
+            #     "= (monitor_data).answered + 1 "
+            #     f"WHERE discID = {userID}"
+            # ))
 
         await _CONN.execute(text(
             "INSERT INTO user_thread (discID, threadID) VALUES "
@@ -297,6 +314,7 @@ async def db_thread_update(
     ))
     _, tagIDs = com.tag_reorder(*tagIDs)
 
+
     db_tags: list[sql.Row] = [row[0] for row in select.fetchall()]
 
     if set(tagIDs) != set(db_tags):
@@ -343,20 +361,21 @@ async def db_thread_create(
     elif isinstance(timestamp, datetime):
         server_id: int = get_first_server_id()
         server_info: dict = load_json()[str(server_id)]
-        ts_semester, ts_year = get_semester_and_year(server_id, timestamp)
-        current_semester: int
-        current_year: int
+        ts_semester: tuple[int, int] = get_semester_and_year(server_id, timestamp)
 
-        current_semester, current_year = (
+        current_semester: tuple[int, int] = (
             server_info["SEMESTER"], server_info["YEAR"]
+        )
+        monitors_info: list[int] | list = (
+            com.MONITORS_OLD.get(ts_semester[1], {}).get(ts_semester[0], [])
         )
 
         ts_fmt = "'" + f"{timestamp:%Y-%m-%d %H:%M:%S.%f}"[:-1] + "'"
 
-        # monitor somente no semestre atual
+        # monitor no semestre atual ou se na lista de monitores
         is_monitor = is_monitor and (
             ts_semester == current_semester
-            and ts_year == current_year
+            or creatorID in monitors_info
         )
 
     res: bool = True
@@ -386,59 +405,103 @@ async def db_thread_create(
 # Funcoes de consulta
 
 @connection_execute
-async def db_monitors(
+async def db_ranking(
     _CONN: aio.AsyncConnection,
     semester: int | None = None,
-    year: int | None = None
+    year: int | None = None,
+    option: str = "monitors"
 ) -> list[dict[int, dict[str, int]]] | list:
     """
     Retorna os monitores do semestre atual e seus dados de suporte,
     ordenados por quantidade de dúvidas resolvidas, ou uma lista vazia
-    caso haja erro ou não haja monitores
+    caso haja erro ou não haja monitores.
+
+    Parameters:
+        semester :`int`: Semestre, 1 ou 2
+        year :`int`: Ano
+        option :`str`:
+            Valores:
+                "monitors" (Padrão): Retorna dados de monitores
+                "users": Retorna dados de não monitores
+                "both": Retorna dados de monitores e não monitores
     """
 
     res: (list[tuple[int, str]]
         | list[tuple[list[dict[str, Any]]]]
         | list[tuple[int, Record]])
-    monitor_data: tuple[int] | dict[str, int]
+    data: tuple[int] | dict[str, int]
     ret: list[dict[int, dict[str, int]]] | list = []
     guild_data: dict = load_json()[str(get_first_server_id())]
     current_semester: int = guild_data["SEMESTER"]
     current_year: int = guild_data["YEAR"]
 
+    option_map: dict[str, str] = {
+        "monitors": "SELECT discID, monitor_data FROM monitors mon "
+                    "ORDER BY (mon.monitor_data).answered DESC, "
+                    "(mon.monitor_data).solved DESC",
+        # somente quem nao so criou thread
+        "users": "SELECT discID, questions_data FROM helpers h "
+                 "ORDER BY (h.questions_data).answered DESC, "
+                 "(h.questions_data).solved DESC",
+        "both": ""
+    }
+
+    if option not in option_map:
+        raise ValueError(f"Invalid option {option}")
+
     if (semester, year) in ((None, None), (current_semester, current_year)):
-        res = (await _CONN.execute(text(
-            "SELECT discID, monitor_data FROM monitors mon "
-            "ORDER BY (mon.monitor_data).answered DESC, "
-            "(mon.monitor_data).solved DESC"
-        ))).fetchall()
+        if option != "both":
+            res = (await _CONN.execute(text(
+                option_map[option]
+            ))).fetchall()
+        else:
+            res = (await _CONN.execute(text(
+                option_map["monitors"]
+            ))).fetchall()
+            res += (await _CONN.execute(text(
+                option_map["users"]
+            ))).fetchall()
 
         if not res: return list()
 
         for entry in res:
             if type(entry[1]) == Record:
-                monitor_data = {
+                data = {
                     "answered": entry[1]["answered"],
                     "solved": entry[1]["solved"],
                 }
             else:
-                monitor_data = eval(entry[1])
-                monitor_data = {
-                    "answered": monitor_data[0],
-                    "solved": monitor_data[1]
+                data = eval(entry[1])
+                data = {
+                    "answered": data[-2],
+                    "solved": data[-1]
                 }
 
-            ret.append({int(entry[0]): monitor_data})
+            ret.append({int(entry[0]): data})
     elif type(semester) == type(year) == int:
         res = (await _CONN.execute(text(
-            "SELECT monitors FROM semester WHERE "
+            "SELECT user_data FROM semester WHERE "
             f"semester_year = {year} AND semester = {semester}"
         ))).fetchall()
 
         if not res[0][0]: return list()
 
         for entry in res[0][0]:
-            ret.append({entry["discID"]: entry["monitor_data"]})
+            if option == "monitors":
+                if entry["is_monitor"]:
+                    ret.append({entry["discID"]: entry["monitor_data"]})
+            elif option == "users":
+                if not entry["is_monitor"]:
+                    data = ({k: entry["questions_data"][k]
+                             for k in ("answered", "solved")})
+                    ret.append({entry["discID"]: data})
+            else:
+                if entry["is_monitor"]:
+                    ret.append({entry["discID"]: entry["monitor_data"]})
+                else:
+                    data = ({k: entry["questions_data"][k]
+                             for k in ("answered", "solved")})
+                    ret.append({entry["discID"]: data})
     else:
         raise ValueError(
             "Semester must be 1 or 2, year must be valid, "

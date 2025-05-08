@@ -178,14 +178,10 @@ CREATE OR REPLACE FUNCTION semester_dump() RETURNS TRIGGER AS $$
 DECLARE
     previous    RECORD;
 BEGIN
-    SELECT sem.semester, sem.semester_year, sem.monitors INTO previous
+    SELECT sem.semester, sem.semester_year, sem.user_data INTO previous
     FROM semester sem
     WHERE sem.semester = 3 - NEW.semester
     AND sem.semester_year = NEW.semester_year - (NEW.semester % 2);
-
-    UPDATE semester sem SET monitors = previous.monitors
-    WHERE sem.semester = NEW.semester
-    AND sem.semester_year = NEW.semester_year;
 
     /* salva dados de duvida como JSON, ignora materias sem duvida */
     UPDATE semester SET subject_data = sub.jdata FROM (
@@ -197,11 +193,13 @@ BEGIN
     WHERE semester = previous.semester
     AND semester_year = previous.semester_year;
 
-    UPDATE semester SET monitors = mon.jdata FROM (
+    UPDATE semester SET user_data = u.jdata FROM (
         SELECT jsonb_agg(jsonb_build_object(
             'discID', discID,
+            'is_monitor', is_monitor,
+            'questions_data', questions_data,
             'monitor_data', monitor_data
-        )) AS jdata FROM monitors) AS mon
+        )) AS jdata FROM users) AS u
     WHERE semester = previous.semester
     AND semester_year = previous.semester_year;
 

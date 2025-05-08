@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from database.data.db_funcs import db_monitors, db_available_semesters
+from database.data.db_funcs import db_available_semesters, db_ranking
 
 class MonitorRanking(commands.Cog):
     """Cog que envia um ranking de monitores com base no semestre escolhido."""
@@ -37,7 +37,7 @@ class MonitorRanking(commands.Cog):
 
             selected_value = interaction_select.data["values"][0]
             year, semester = map(int, selected_value.split("-"))
-            ranking = await db_monitors(semester=semester, year=year)
+            ranking = await db_ranking(semester=semester, year=year)
 
             if not ranking:
                 await interaction_select.response.send_message(

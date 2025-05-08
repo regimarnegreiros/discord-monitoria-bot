@@ -98,6 +98,19 @@ if not load_dotenv(dotenv_path=f"{WD}settings{SEP}.env"):
     eprint("error loading environment variables")
     exit(1)
 
+# a ser substituido no config.json
+MONITORS_OLD = {
+    2024: {
+        2: [
+            1145514754119565352, 545395327050448898, 1210923585829339166,
+            428229087719325707, 353351449394020362, 518793348643815444,
+            521313716466089984, 424683433382641666, 658351367739670528,
+            637426176108789762, 958788049213489233, 1210923585829339166,
+            451034189299712000, 1085286719454195782, 768310609770708993
+        ]
+    }
+}
+
 del WD, DBWD
 
 PASSW, DATABASE_URL = os.getenv("DBPASSW"), os.getenv("DB_URL")
