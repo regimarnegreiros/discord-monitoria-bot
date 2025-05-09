@@ -8,6 +8,7 @@ from forum_functions.get_thread_infos import get_thread_infos
 from forum_functions.count_messages import get_users_message_count_in_thread
 from tools.json_config import get_semester_and_year, load_json
 import database.data.db_funcs as db
+from database.data.db_commons import MONITORS_OLD # a ser substituido no config.json
 from asyncio import sleep
 
 class InsertHistory(commands.Cog):
@@ -20,18 +21,27 @@ class InsertHistory(commands.Cog):
         """Apaga o banco de dados e insere todo o histórico do servidor no banco de dados."""
 
         await interaction.response.defer()
+        progress_message = await interaction.followup.send("🎲 Resetando banco de dados...")
 
         # Verificar se o usuário possui a role de admin
-        if not await check_admin_role(interaction):
-            return
+        # if not await check_admin_role(interaction):
+        #     return
 
-        db.db_nuke() # Resetar o Banco de dados
+        data = load_json()
+        server = data[str(interaction.guild_id)]
+        current_year = server["YEAR"]
+        current_semester = server["SEMESTER"]
+
+        db.db_nuke() # Reseta o Banco de dados
 
         posts_id = await get_forum_posts(interaction.guild_id)
         semester, year = 0, 0
 
         try:
             for index, post_id in enumerate(posts_id, start=1):
+                await progress_message.edit(
+                    content=f"📄 Processando post {index} de {len(posts_id)} (ID: {post_id})..."
+                )
                 print(f"Processando... \033[36mPost {index}\033[0m de {len(posts_id)}")
                 print("Extraindo thread...")
 
@@ -44,15 +54,22 @@ class InsertHistory(commands.Cog):
 
                 if (semester_temp, year_temp) != (semester, year):
                     await db.db_new_semester(semester_temp, year_temp)
+
                     semester, year = semester_temp, year_temp
+                    is_current_semester = (
+                        year == current_year
+                        and semester == current_semester
+                    )
+                    monitor_info = MONITORS_OLD.get(year, {}).get(semester, [])
 
                 # Adicionar informações da thread no banco
                 await db.db_thread_create(
                     thread_info["id"], thread_info["owner_id"],
-                    *tags, thread_info["created_at"])
+                    *tags, timestamp=thread_info["created_at"])
 
                 # Colocar os usuários que participaram da thread no banco
                 users = await get_users_message_count_in_thread(post_id)
+                not_users: set[int] = set()
                 await sleep(1)
 
                 for user_id in users.keys():
@@ -60,18 +77,15 @@ class InsertHistory(commands.Cog):
                         user = await interaction.guild.fetch_member(user_id)
                     except discord.NotFound:
                         print(f"Membro {user_id} não encontrado no servidor.")
+                        not_users.add(user_id)
                         continue  # Pular para o próximo usuário
-
-                    data = load_json()
-                    server = data[str(interaction.guild_id)]
-                    actual_year = server["YEAR"]
-                    actual_semester = server["SEMESTER"]
 
                     if thread_info['owner_id'] == user.id:
                         continue # Usuário que criou a thread (post)
-                    elif (await check_monitor(user)
-                          and year == actual_year
-                          and semester == actual_semester):
+                    elif ((await check_monitor(user)
+                          and is_current_semester)
+                          or (not is_current_semester
+                              and user_id in monitor_info)):
                         # Adicionar como monitor no banco
                         await db.db_new_user(
                             user.id, is_creator=False, is_monitor=True)
@@ -80,14 +94,21 @@ class InsertHistory(commands.Cog):
                         await db.db_new_user(
                             user.id, is_creator=False, is_monitor=False)
 
-                print(f"\033[32mPost {post_id} adicionado com sucesso "
-                      "ao banco junto com suas informações.\033[0m")
+                await db.db_thread_answered(
+                    post_id, users=(set(users.keys()) - not_users),
+                    semester_pair=(semester, year)
+                )
+
+                print(f"\033[32mPost {post_id} adicionado com sucesso ao banco.\033[0m")
 
         except Exception as e:
-            print(e)
-
-        await interaction.followup.send(
-            "Banco de dados resetado e dados do histórico do servidor adicionados ao banco")
+            await progress_message.edit(
+                content="❌ Banco de dados resetado; houve erro na inserção de dados."
+            )
+        else:
+            await progress_message.edit(
+                content="✅ Banco de dados resetado e histórico inserido com sucesso!"
+            )
 
 # Função para adicionar a cog ao bot
 async def setup(client):

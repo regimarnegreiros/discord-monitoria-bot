@@ -1,4 +1,4 @@
-import db_commons as com
+import database.data.db_commons as com
 import os
 from shutil import which
 import sqlalchemy as sql

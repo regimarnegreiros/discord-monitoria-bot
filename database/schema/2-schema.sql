@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS semester (
     semesterID SERIAL PRIMARY KEY,
     semester_year INT,
     semester INT,
-    monitors JSONB,
+    user_data JSONB,
     subject_data JSONB,
     CHECK (semester BETWEEN 1 AND 2),
     CHECK (semester_year >= 2023),
