@@ -20,12 +20,12 @@ class InsertHistory(commands.Cog):
     async def insert_history(self, interaction: discord.Interaction):
         """Apaga o banco de dados e insere todo o histórico do servidor no banco de dados."""
 
+        # Verificar se o usuário possui a role de admin
+        if not await check_admin_role(interaction):
+            return
+        
         await interaction.response.defer()
         progress_message = await interaction.followup.send("🎲 Resetando banco de dados...")
-
-        # Verificar se o usuário possui a role de admin
-        # if not await check_admin_role(interaction):
-        #     return
 
         data = load_json()
         server = data[str(interaction.guild_id)]
