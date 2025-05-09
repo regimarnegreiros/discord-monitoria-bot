@@ -48,9 +48,18 @@ class MonitorRanking(commands.Cog):
                          f"{semester}º Semestre de {year}**\n"]
             for idx, monitor in enumerate(ranking, 1):
                 monitorID: int = list(monitor.keys())[0]
+                member_name = f"<@{monitorID}>"
+
+                try:
+                    member = await interaction_select.guild.fetch_member(monitorID)
+                    member_name = f"**{member.display_name}**"
+                except discord.NotFound:
+                    member_name = "**Membro desconhecido**"  # Membro saiu do servidor
+                except discord.HTTPException:
+                    member_name = "**Erro de conexão com API**"  # Algum erro de conexão com a API
 
                 msg_lines.append(
-                    f"**{idx}.** <@{monitorID}> - "
+                    f"{idx}. {member_name} - "
                     f"Respondidas: {monitor[monitorID]['answered']} | "
                     f"Resolvidas: {monitor[monitorID]['solved']}"
                 )
