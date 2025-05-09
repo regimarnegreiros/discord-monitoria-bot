@@ -35,10 +35,12 @@ class MonitorRanking(commands.Cog):
     @app_commands.describe(semestre="Escolha o semestre")
     @app_commands.autocomplete(semestre=autocomplete_semestres)
     async def ranking_monitores(self, interaction: discord.Interaction, semestre: str):
+        await interaction.response.defer()
+
         try:
             year, semester = map(int, semestre.split("/"))
         except ValueError:
-            await interaction.response.send_message("Formato de semestre inválido.", ephemeral=True)
+            await interaction.followup.send("Formato de semestre inválido.", ephemeral=True)
             return
 
         # Verificação extra para garantir que o semestre existe
@@ -46,13 +48,13 @@ class MonitorRanking(commands.Cog):
         valid_semestres = [f"{ano}/{sem}" for ano, sem in available]
 
         if semestre not in valid_semestres:
-            await interaction.response.send_message("Esse semestre não está disponível no sistema.", ephemeral=True)
+            await interaction.followup.send("Esse semestre não está disponível no sistema.", ephemeral=True)
             return
 
         ranking = await db_ranking(semester=semester, year=year)
 
         if not ranking:
-            await interaction.response.send_message("Nenhum monitor encontrado para esse semestre.", ephemeral=True)
+            await interaction.followup.send("Nenhum monitor encontrado para esse semestre.", ephemeral=True)
             return
 
         msg_lines: list[str] = ["📊 **Ranking de Monitores - "
@@ -75,7 +77,7 @@ class MonitorRanking(commands.Cog):
                 f"Resolvidas: {monitor[monitorID]['solved']}"
             )
 
-        await interaction.response.send_message("\n".join(msg_lines), allowed_mentions=discord.AllowedMentions(users=False))
+        await interaction.followup.send("\n".join(msg_lines), allowed_mentions=discord.AllowedMentions(users=False))
 
 async def setup(client):
     await client.add_cog(MonitorRanking(client))
