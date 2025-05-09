@@ -514,11 +514,103 @@ async def db_ranking(
     if ret:
         ret = sorted(
             ret,
-            key=lambda x: list(x.values())[0]["answered"], reverse=True
+            key=lambda x: list(x.values())[0]["solved"], reverse=True
         )
         ret = sorted(
             ret,
-            key=lambda x: list(x.values())[0]["solved"], reverse=True
+            key=lambda x: list(x.values())[0]["answered"], reverse=True
+        )
+
+    return ret
+
+@connection_execute
+async def db_subject_ranking(
+    _CONN: aio.AsyncConnection,
+    semester: int | None = None,
+    year: int | None = None
+) -> list[dict[int, dict[str, int]]] | list:
+    """
+    Retorna dados da matéria para um dado semestre e ano.
+    """
+
+    data: tuple[int] | dict[str, int]
+    entry: dict
+    subject: tuple[int, str, dict]
+    guild_data: dict = load_json()[str(get_first_server_id())]
+    current_semester: int = guild_data["SEMESTER"]
+    current_year: int = guild_data["YEAR"]
+    ret: list[dict[int, dict[str, int]]] = []
+
+    subject_info: list[tuple[int, str, str|Record]] = (
+        await _CONN.execute(text(
+        "SELECT tags.tagID, tags.subjectID, sub.questions_data "
+        "FROM tags INNER JOIN subjects sub "
+        "ON sub.subjectID = tags.subjectID "
+        "ORDER BY (sub.questions_data).total DESC, "
+        "(sub.questions_data).answered DESC, "
+        "(sub.questions_data).solved DESC"))
+    ).fetchall()
+    if not subject_info: return list()
+
+    if (semester, year) in ((None, None), (current_semester, current_year)):
+        for entry in subject_info:
+            if type(entry[-1]) == "str":
+                data = eval(entry[-1])
+                data = {
+                    "total": data[0],
+                    "answered": data[1],
+                    "solved": data[2]
+                }
+            else:
+                data = {
+                    "total": entry[-1]["total"],
+                    "answered": entry[-1]["answered"],
+                    "solved": entry[-1]["solved"]
+                }
+            ret.append({"tagID": entry[0], "questions_data": data})
+
+    elif type(semester) == type(year) == int:
+        res: list[tuple[list[dict]]] = (await _CONN.execute(text(
+            "SELECT subject_data FROM semester "
+            f"WHERE semester_year = {year} AND semester = {semester}"
+        ))).fetchall()
+
+        if not res[0][0]: return list() # [([{...}],)]
+
+        for entry in res[0][0]:
+            for subject in subject_info:
+                if entry["subject_id"] in subject:
+                    ret.append(
+                        {"tagID": subject[0],
+                        "questions_data": entry["questions_data"]}
+                    )
+                    break
+
+    else:
+        raise ValueError(
+            "Semester must be 1 or 2, year must be valid, "
+            "or both must be None"
+        )
+
+    ret = list(filter(lambda x: tuple(
+                            (list(x.values())[0]).values()
+                      ) != (None, None, None), ret))
+
+    if ret:
+        ret = sorted(
+            ret,
+            key=lambda x: list(x.values())[0]["total"],
+            reverse=True
+        )
+        ret = sorted(
+            ret,
+            key=lambda x: list(x.values())[0]["answered"],
+            reverse=True
+        )
+        ret = sorted(
+            ret,
+            key=lambda x: list(x.values())[0]["solved"],
+            reverse=True
         )
 
     return ret
@@ -533,7 +625,8 @@ async def db_available_semesters(
     """
 
     res: sql.CursorResult = await _CONN.execute(text(
-        "SELECT semester_year, semester FROM semester"
+        "SELECT semester_year, semester FROM semester "
+        "ORDER BY semester_year, semester"
     ))
 
     rowcount: int = res.rowcount
