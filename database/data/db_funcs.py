@@ -426,9 +426,8 @@ async def db_ranking(
                 "both": Retorna dados de monitores e não monitores
     """
 
-    res: (list[tuple[int, str]]
-        | list[tuple[list[dict[str, Any]]]]
-        | list[tuple[int, Record]])
+    res: (list[tuple[int, str|Record]]
+        | list[tuple[list[dict[str, Any]]]])
     data: tuple[int] | dict[str, int]
     ret: list[dict[int, dict[str, int]]] | list = []
     guild_data: dict = load_json()[str(get_first_server_id())]

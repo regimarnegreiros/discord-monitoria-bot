@@ -199,7 +199,10 @@ BEGIN
             'is_monitor', is_monitor,
             'questions_data', questions_data,
             'monitor_data', monitor_data
-        )) AS jdata FROM users) AS u
+        )) AS jdata FROM users WHERE (
+            (NOT is_monitor AND questions_data <> (0,0,0))
+            OR (is_monitor AND monitor_data <> (0,0))
+        )) AS u
     WHERE semester = previous.semester
     AND semester_year = previous.semester_year;
 
