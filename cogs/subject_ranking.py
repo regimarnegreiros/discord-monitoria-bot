@@ -3,6 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from database.data.db_funcs import db_available_semesters, db_subject_ranking
+from tools.json_config import load_json
 
 class SubjectRanking(commands.Cog):
     """Cog que exibe o ranking de matérias baseado em dados de questões."""
@@ -56,13 +57,31 @@ class SubjectRanking(commands.Cog):
             await interaction.followup.send("Nenhuma matéria encontrada para esse semestre.", ephemeral=True)
             return
 
+        # Carrega configurações e o ID do canal de fórum
+        config = load_json()
+        guild_config = config.get(str(interaction.guild_id), {})
+        forum_channel_id = guild_config.get("FORUM_CHANNEL_ID")
+
+        forum_channel = interaction.guild.get_channel(forum_channel_id)
+        if not forum_channel or not isinstance(forum_channel, discord.ForumChannel):
+            await interaction.followup.send("Canal de fórum inválido ou não encontrado.", ephemeral=True)
+            return
+
+        # Mapeia tags: {tag_id: (emoji, name)}
+        tag_map = {
+            tag.id: (tag.emoji.name if tag.emoji else "", tag.name)
+            for tag in forum_channel.available_tags
+        }
+
         msg_lines: list[str] = [f"📚 **Ranking de Matérias - {semester}º Semestre de {year}**\n"]
         for idx, subject_data in enumerate(ranking, 1):
             tag_id = subject_data["tagID"]
             data = subject_data["questions_data"]
 
+            emoji, tag_name = tag_map.get(tag_id, ("❓", f"Tag {tag_id}"))
+
             msg_lines.append(
-                f"{idx}. {tag_id} - "
+                f"{idx}. {emoji} **{tag_name}** - "
                 f"Total: {data['total']} | "
                 f"Respondidas: {data['answered']} | "
                 f"Resolvidas: {data['solved']}"
