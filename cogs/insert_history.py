@@ -24,8 +24,8 @@ class InsertHistory(commands.Cog):
         progress_message = await interaction.followup.send("🎲 Resetando banco de dados...")
 
         # Verificar se o usuário possui a role de admin
-        # if not await check_admin_role(interaction):
-        #     return
+        if not await check_admin_role(interaction):
+            return
 
         data = load_json()
         server = data[str(interaction.guild_id)]
