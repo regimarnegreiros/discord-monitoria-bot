@@ -546,6 +546,7 @@ async def db_subject_ranking(
         "SELECT tags.tagID, tags.subjectID, sub.questions_data "
         "FROM tags INNER JOIN subjects sub "
         "ON sub.subjectID = tags.subjectID "
+        "WHERE sub.questions_data <> (0,0,0) "
         "ORDER BY (sub.questions_data).total DESC, "
         "(sub.questions_data).answered DESC, "
         "(sub.questions_data).solved DESC"))
@@ -592,9 +593,13 @@ async def db_subject_ranking(
             "or both must be None"
         )
 
-    ret = list(filter(lambda x: tuple(
-                            (list(x.values())[0]).values()
-                      ) != (None, None, None), ret))
+    ret = list(
+        filter(
+            (lambda x: tuple(x["questions_data"].values())
+             not in ((None, None, None), (0,0,0))),
+            ret
+        )
+    )
 
     if ret:
         ret = sorted(
