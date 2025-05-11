@@ -11,69 +11,73 @@ class MonitorRanking(commands.Cog):
         self.client = client
         super().__init__()
 
-    @app_commands.command(name="ranking_monitores", description="Exibe o ranking de monitores por semestre.")
-    async def ranking_monitores(self, interaction: discord.Interaction):
+    async def autocomplete_semestres(
+        self,
+        interaction: discord.Interaction,
+        current: str
+    ) -> list[app_commands.Choice[str]]:
         count, semesters = await db_available_semesters()
 
         if count == 0:
-            await interaction.response.send_message("Nenhum semestre disponível foi encontrado no banco de dados.")
-            return
+            return []
 
-        options = [
-            discord.SelectOption(
-                label=f"{sem[1]}º semestre de {sem[0]}",
-                value=f"{sem[0]}-{sem[1]}"
+        choices = [
+            app_commands.Choice(
+                name=f"{sem[1]}º semestre de {sem[0]}",
+                value=f"{sem[0]}/{sem[1]}"
             ) for sem in semesters
+            if current.lower() in f"{sem[1]}º semestre de {sem[0]}".lower()
         ]
 
-        select = discord.ui.Select(
-            placeholder="Escolha o semestre",
-            options=options,
-            custom_id="select_semester"
-        )
+        return choices[:25]  # Limite do Discord
 
-        async def select_callback(interaction_select: discord.Interaction):
-            ranking: list[dict[int, dict[str, int]]] | list
+    @app_commands.command(name="ranking_monitores", description="Exibe o ranking de monitores por semestre.")
+    @app_commands.describe(semestre="Escolha o semestre")
+    @app_commands.autocomplete(semestre=autocomplete_semestres)
+    async def ranking_monitores(self, interaction: discord.Interaction, semestre: str):
+        await interaction.response.defer()
 
-            selected_value = interaction_select.data["values"][0]
-            year, semester = map(int, selected_value.split("-"))
-            ranking = await db_ranking(semester=semester, year=year)
+        try:
+            year, semester = map(int, semestre.split("/"))
+        except ValueError:
+            await interaction.followup.send("Formato de semestre inválido.", ephemeral=True)
+            return
 
-            if not ranking:
-                await interaction_select.response.send_message(
-                    "Nenhum monitor encontrado para esse semestre.")
-                return
+        # Verificação extra para garantir que o semestre existe
+        _, available = await db_available_semesters()
+        valid_semestres = [f"{ano}/{sem}" for ano, sem in available]
 
-            msg_lines: list[str] = ["📊 **Ranking de Monitores - "
-                         f"{semester}º Semestre de {year}**\n"]
-            for idx, monitor in enumerate(ranking, 1):
-                monitorID: int = list(monitor.keys())[0]
-                member_name = f"<@{monitorID}>"
+        if semestre not in valid_semestres:
+            await interaction.followup.send("Esse semestre não está disponível no sistema.", ephemeral=True)
+            return
 
-                try:
-                    member = await interaction_select.guild.fetch_member(monitorID)
-                    member_name = f"**{member.display_name}**"
-                except discord.NotFound:
-                    member_name = "**Membro desconhecido**"  # Membro saiu do servidor
-                except discord.HTTPException:
-                    member_name = "**Erro de conexão com API**"  # Algum erro de conexão com a API
+        ranking = await db_ranking(semester=semester, year=year)
 
-                msg_lines.append(
-                    f"{idx}. {member_name} - "
-                    f"Respondidas: {monitor[monitorID]['answered']} | "
-                    f"Resolvidas: {monitor[monitorID]['solved']}"
-                )
+        if not ranking:
+            await interaction.followup.send("Nenhum monitor encontrado para esse semestre.", ephemeral=True)
+            return
 
-            await interaction_select.response.send_message(
-                "\n".join(msg_lines),
-                allowed_mentions=discord.AllowedMentions(users=False))
+        msg_lines: list[str] = ["📊 **Ranking de Monitores - "
+                                f"{semester}º Semestre de {year}**\n"]
+        for idx, monitor in enumerate(ranking, 1):
+            monitorID: int = list(monitor.keys())[0]
+            member_name = f"<@{monitorID}>"
 
-        select.callback = select_callback
+            try:
+                member = await interaction.guild.fetch_member(monitorID)
+                member_name = f"**{member.display_name}**"
+            except discord.NotFound:
+                member_name = "**Membro desconhecido**"
+            except discord.HTTPException:
+                member_name = "**Erro de conexão com API**"
 
-        view = discord.ui.View()
-        view.add_item(select)
+            msg_lines.append(
+                f"{idx}. {member_name} - "
+                f"Respondidas: {monitor[monitorID]['answered']} | "
+                f"Resolvidas: {monitor[monitorID]['solved']}"
+            )
 
-        await interaction.response.send_message("Selecione o semestre para visualizar o ranking:", view=view, ephemeral=True)
+        await interaction.followup.send("\n".join(msg_lines), allowed_mentions=discord.AllowedMentions(users=False))
 
 async def setup(client):
     await client.add_cog(MonitorRanking(client))
