@@ -62,7 +62,7 @@ class SubjectRanking(commands.Cog):
             data = subject_data["questions_data"]
 
             msg_lines.append(
-                f"{idx}. <#{tag_id}> - "
+                f"{idx}. {tag_id} - "
                 f"Total: {data['total']} | "
                 f"Respondidas: {data['answered']} | "
                 f"Resolvidas: {data['solved']}"

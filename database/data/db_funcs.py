@@ -541,19 +541,20 @@ async def db_subject_ranking(
     current_year: int = guild_data["YEAR"]
     ret: list[dict[int, dict[str, int]]] = []
 
-    subject_info: list[tuple[int, str, str|Record]] = (
-        await _CONN.execute(text(
-        "SELECT tags.tagID, tags.subjectID, sub.questions_data "
-        "FROM tags INNER JOIN subjects sub "
-        "ON sub.subjectID = tags.subjectID "
-        "WHERE sub.questions_data <> (0,0,0) "
-        "ORDER BY (sub.questions_data).total DESC, "
-        "(sub.questions_data).answered DESC, "
-        "(sub.questions_data).solved DESC"))
-    ).fetchall()
-    if not subject_info: return list()
-
     if (semester, year) in ((None, None), (current_semester, current_year)):
+        subject_info: list[tuple[int, str, str|Record]] = (
+            await _CONN.execute(text(
+            "SELECT tags.tagID, tags.subjectID, sub.questions_data "
+            "FROM tags INNER JOIN subjects sub "
+            "ON sub.subjectID = tags.subjectID "
+            "WHERE sub.questions_data <> (0,0,0) "
+            "ORDER BY (sub.questions_data).total DESC, "
+            "(sub.questions_data).answered DESC, "
+            "(sub.questions_data).solved DESC"))
+        ).fetchall()
+
+        if not subject_info: return list()
+
         for entry in subject_info:
             if type(entry[-1]) == "str":
                 data = eval(entry[-1])
@@ -571,6 +572,12 @@ async def db_subject_ranking(
             ret.append({"tagID": entry[0], "questions_data": data})
 
     elif type(semester) == type(year) == int:
+        subject_tag: list[tuple[int, str]] = (await _CONN.execute(text(
+            "SELECT tags.tagID, tags.subjectID "
+            "FROM tags INNER JOIN subjects sub "
+            "ON sub.subjectID = tags.subjectID "
+        ))).fetchall()
+
         res: list[tuple[list[dict]]] = (await _CONN.execute(text(
             "SELECT subject_data FROM semester "
             f"WHERE semester_year = {year} AND semester = {semester}"
@@ -579,7 +586,7 @@ async def db_subject_ranking(
         if not res[0][0]: return list() # [([{...}],)]
 
         for entry in res[0][0]:
-            for subject in subject_info:
+            for subject in subject_tag:
                 if entry["subject_id"] in subject:
                     ret.append(
                         {"tagID": subject[0],
@@ -604,17 +611,17 @@ async def db_subject_ranking(
     if ret:
         ret = sorted(
             ret,
-            key=lambda x: list(x.values())[0]["total"],
+            key=lambda x: x["questions_data"]["total"],
             reverse=True
         )
         ret = sorted(
             ret,
-            key=lambda x: list(x.values())[0]["answered"],
+            key=lambda x: x["questions_data"]["answered"],
             reverse=True
         )
         ret = sorted(
             ret,
-            key=lambda x: list(x.values())[0]["solved"],
+            key=lambda x: x["questions_data"]["solved"],
             reverse=True
         )
 
