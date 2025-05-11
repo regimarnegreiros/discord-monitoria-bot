@@ -188,7 +188,7 @@ BEGIN
         SELECT jsonb_agg(jsonb_build_object(
             'subject_id', subjectid,
             'name', subject_name,
-            'data', questions_data
+            'questions_data', questions_data
         )) AS jdata FROM subjects WHERE questions_data <> (0,0,0)) AS sub
     WHERE semester = previous.semester
     AND semester_year = previous.semester_year;
