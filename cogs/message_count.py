@@ -9,7 +9,7 @@ class MessageCount(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @app_commands.command(name="contar_mensagens", description="Mostra a quantidade de mensagens de um post.")
+    @app_commands.command(name="contar_mensagens", description="Mostra a quantidade de mensagens de um post. (Admin)")
     async def message_count(self, interaction: discord.Interaction, thread_id: str):
         """Comando que retorna a quantidade de mensagens de cada usuário em uma thread específica."""
 

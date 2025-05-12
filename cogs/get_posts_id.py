@@ -12,7 +12,7 @@ class GetPostsId(commands.Cog):
         self.client = client
         super().__init__()
     
-    @app_commands.command(name="posts_id", description="Coleta o id de todos os posts do fórum.")
+    @app_commands.command(name="posts_id", description="Coleta o id de todos os posts do fórum. (Admin)")
     async def getpostsid(self, interaction: discord.Interaction):
         # Verificar se o usuário possui a role de admin
         if not await check_admin_role(interaction):

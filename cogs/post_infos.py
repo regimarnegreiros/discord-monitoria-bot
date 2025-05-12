@@ -9,7 +9,7 @@ class ThreadInfos(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @app_commands.command(name="ver_post_infos", description="Mostra as informações de um post.")
+    @app_commands.command(name="ver_post_infos", description="Mostra as informações de um post. (Admin)")
     async def thread_infos(self, interaction: discord.Interaction, thread_id: str):
         """Comando que retorna as informações de uma thread específica."""
 
