@@ -4,8 +4,7 @@ O **Registros de Monitoria** é um bot desenvolvido para auxiliar no gerenciamen
 
 ### Exemplos: 
 
-<img src="./img/ranking_monitores.jpg" width=250px alt="Ranking de Monitores Ciencia da Computacao IESB 1/2025 e 2/2024" style="padding-right: 10px">
-<img src="./img/ranking_materias.jpg" width=250px alt="Ranking de Materias Computacao IESB 1/2025 e 2/2024">
+<img src="./img/exemplo.png" width=350px alt="Ranking de Monitores e Materias Computacao IESB 1/2025 e 2/2024">
 
 ## Instalação
 
