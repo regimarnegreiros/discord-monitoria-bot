@@ -16,7 +16,7 @@ class InsertHistory(commands.Cog):
         self.bot = bot
 
     @app_commands.command(name="inserir_histórico", 
-        description="Reseta o banco de dados e insere o histórico completo do servidor (admin).")
+        description="Reseta o banco de dados e insere o histórico completo do servidor. (Admin)")
     async def insert_history(self, interaction: discord.Interaction):
         """Apaga o banco de dados e insere todo o histórico do servidor no banco de dados."""
 
