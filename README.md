@@ -2,9 +2,12 @@
 
 O **Registros de Monitoria** é um bot desenvolvido para auxiliar no gerenciamento e análise de estatísticas de monitoria dentro de um servidor do Discord. Ele coleta e organiza dados sobre a participação dos monitores em canais de fórum e gerando um ranking baseado em diversas métricas.
 
-### Exemplos: 
+### Exemplo:
 
-<img src="./img/exemplo.png" width=350px alt="Ranking de Monitores e Materias Computacao IESB 1/2025 e 2/2024">
+<p style="text-align: center">
+<img src="./img/exemplo.png" width=70% alt="Ranking de Monitores e Materias Computacao IESB 2/2024"
+style="border-radius: 2%; ">
+</p>
 
 ## Instalação
 
