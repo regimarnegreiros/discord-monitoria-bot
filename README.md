@@ -2,7 +2,12 @@
 
 O **Registros de Monitoria** é um bot desenvolvido para auxiliar no gerenciamento e análise de estatísticas de monitoria dentro de um servidor do Discord. Ele coleta e organiza dados sobre a participação dos monitores em canais de fórum e gerando um ranking baseado em diversas métricas.
 
-### Instalação
+### Exemplos: 
+
+<img src="./img/ranking_monitores.jpg" width=250px alt="Ranking de Monitores Ciencia da Computacao IESB 1/2025 e 2/2024" style="padding-right: 10px">
+<img src="./img/ranking_materias.jpg" width=250px alt="Ranking de Materias Computacao IESB 1/2025 e 2/2024">
+
+## Instalação
 
 1. **Instalar Pacotes Python:**
 
@@ -16,13 +21,13 @@ O **Registros de Monitoria** é um bot desenvolvido para auxiliar no gerenciamen
 
     Cheque [este README](./database/README.md).
 
-### Configuração
+## Configuração
 
 1. Ao iniciar o bot pela primeira vez, ele criará automaticamente um arquivo chamado `config.json`. Edite as variáveis dentro desse arquivo, substituindo pelos valores reais do seu servidor e canais.
 2. **Crie uma cópia** do arquivo chamado `.env.exemple` e nomeie-a como `.env` na raiz do seu projeto. Substitua as variáveis de ambiente pelos valores reais.
 
 
-### Executando o Bot
+## Executando o Bot
 
 Execute o bot usando o seguinte comando:
 
