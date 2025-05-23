@@ -27,19 +27,20 @@ class OnMessage(commands.Cog):
             print(f"Usuário {message.author} é o criador da thread.")
             # Colocar aqui a lógica específica para quando o usuário for o criador da thread.
             return
-
-        is_monitor = await check_monitor(message.author)
-
-        # Verificar se o membro que enviou a mensagem é um monitor
-        if is_monitor:
-            member_id = message.author.id
-            print(f"Usuário monitor identificado: {message.author} (ID: {member_id})")
         else:
-            print(f"Usuário {message.author} não é monitor.")
-            # Aqui você pode colocar o ID no banco ou realizar outras ações não for monitor
+            is_monitor = await check_monitor(message.author)
 
-        await db_new_user(member_id, is_creator=False, is_monitor=is_monitor)
-        await db_thread_answered(thread.id)
+            # Verificar se o membro que enviou a mensagem é um monitor
+            if is_monitor:
+                member_id = message.author.id
+                print(f"Usuário monitor identificado: {message.author} (ID: {member_id})")
+            else:
+                print(f"Usuário {message.author} não é monitor.")
+                # Aqui você pode colocar o ID no banco ou realizar outras ações não for monitor
+
+            await db_new_user(member_id, is_creator=False, is_monitor=is_monitor)
+
+        await db_thread_answered(thread.id, from_on_message=True)
 
 async def setup(client):
     await client.add_cog(OnMessage(client))

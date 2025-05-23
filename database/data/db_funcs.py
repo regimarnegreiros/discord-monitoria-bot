@@ -129,7 +129,8 @@ async def db_new_user(
 async def db_thread_answered(
     _CONN: aio.AsyncConnection, threadID: int,
     users: set[int] | None = None,
-    semester_pair: tuple[int, int] = None
+    semester_pair: tuple[int, int] = None,
+    from_on_message: bool = False
 ) -> bool:
     """
     Checa se uma thread foi respondida.
@@ -175,8 +176,8 @@ async def db_thread_answered(
     if not users:
         users = set((await get_users_message_count_in_thread(threadID)).keys())
 
-    if ((is_old_semester and len(users) > 1)
-        or (not is_old_semester and len(users) == 2)):
+    if ((not from_on_message and len(users) > 1)
+        or (from_on_message and len(users) == 2)):
         await _CONN.execute(text(
             "UPDATE users SET questions_data.answered "
             "= (questions_data).answered + 1 "
@@ -194,7 +195,7 @@ async def db_thread_answered(
                 "SET questions_data.answered = (questions_data).answered + 1 "
                 f"WHERE subjectID = ({sub_query})"
             ))
-    
+
     semester, year = semester_pair
     semester_info: list[int] | list = (
         com.MONITORS_OLD.get(year, {}).get(semester, [])
@@ -208,12 +209,6 @@ async def db_thread_answered(
         if ((not is_old_semester and is_monitor)
             or (is_old_semester and userID in semester_info)):
             monitor_answered = True
-            # incrementa respondidas p/ monitores
-            # await _CONN.execute(text(
-            #     "UPDATE users SET monitor_data.answered "
-            #     "= (monitor_data).answered + 1 "
-            #     f"WHERE discID = {userID}"
-            # ))
 
         await _CONN.execute(text(
             "INSERT INTO user_thread (discID, threadID) VALUES "
