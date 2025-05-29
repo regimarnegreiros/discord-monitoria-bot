@@ -3,7 +3,7 @@ import discord
 from dotenv import load_dotenv
 
 from bot.client_instance import get_client
-from tools.json_config import load_json, ensure_config_exists
+from tools.json_config import load_json, ensure_config_exists, add_server
 
 # Carregamento do arquivo .env
 load_dotenv(dotenv_path='settings/.env')
@@ -40,6 +40,8 @@ async def on_ready():
 
     # Garante que o arquivo de configuração existe
     ensure_config_exists()
+    for guild in client.guilds:
+        add_server(guild.id)
     
     # Carrega os cogs
     await load_cogs()
