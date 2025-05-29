@@ -49,7 +49,7 @@ def add_server(guild_id):
 
     # Verificar se o servidor já existe
     if str(guild_id) in data:
-        print(f"O servidor com ID {guild_id} já existe.")
+        # print(f"O servidor com ID {guild_id} já existe.")
         return
 
     # Adicionar o servidor com valores vazios
