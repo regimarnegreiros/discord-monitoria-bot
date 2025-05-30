@@ -146,7 +146,7 @@ def ensure_config_exists():
 # Retorna o primeiro ID de servidor encontrado no JSON (ignorando bot_status)
 def get_first_server_id() -> int | None:
     data = load_json()
-    guild_keys = [key for key in data if key != "bot_status"]
+    guild_keys = [key for key in data if key != "bot_status" and key != "id_servidor_exemplo_1234567890"]
     
     if not guild_keys:
         return None
