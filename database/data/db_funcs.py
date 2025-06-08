@@ -20,26 +20,38 @@ type db_funcs_t = Callable[
     [aio.AsyncConnection, Any],
     Awaitable[bool] | Awaitable[list]]
 
-def db_nuke() -> None:
+async def db_nuke() -> None:
     """
     Recria o banco de dados. Todos os dados são perdidos.
 
     **TOME CUIDADO EXTREMO AO UTILIZAR ESSA FUNÇÃO**
     """
 
+    global ENGINE
+
     from os import name, system
+    from asyncio import sleep
 
     if name == "posix":
         CMD = "sudo -u postgres psql -U postgres -c"
     else:
         CMD = f"psql postgres://postgres:{com.PASSW}@localhost:5432/postgres -c"
 
+    if ENGINE is not None:
+        await ENGINE.dispose()
+        ENGINE.sync_engine.dispose()
+        ENGINE = None
+
+    ret = system(f"{CMD} \"REVOKE ALL PRIVILEGES ON DATABASE db_monitoring FROM monitor_admin;\"")
     ret: int = system(f"{CMD} \"DROP DATABASE db_monitoring WITH (FORCE);\"")
     ret = system(f"{CMD} \"DROP OWNED BY monitor_admin CASCADE;\"")
-    ret = system(f"{CMD} \"DROP user monitor_admin;\"")
 
-    import database.data.db_setup
+    from database.data.db_setup import eng_setup
+    eng_setup()
+    ret = system(f"{CMD} \"ALTER USER monitor_admin WITH LOGIN PASSWORD '{com.PASSW}'\"")
 
+    await sleep(1)
+    ENGINE = aio.create_async_engine(com.DATABASE_URL, pool_pre_ping=True)
 
 def connection_execute(
     db_func: db_funcs_t
