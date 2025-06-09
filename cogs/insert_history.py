@@ -10,8 +10,9 @@ from tools.json_config import get_semester_and_year, load_json
 import database.data.db_funcs as db
 from database.data.db_commons import MONITORS_OLD # a ser substituido no config.json
 from asyncio import sleep
-from datetime import datetime
+from time import time
 from datetime import timedelta
+from traceback import format_exc
 
 class InsertHistory(commands.Cog):
     def __init__(self, bot):
@@ -22,13 +23,30 @@ class InsertHistory(commands.Cog):
     async def insert_history(self, interaction: discord.Interaction):
         """Apaga o banco de dados e insere todo o histórico do servidor no banco de dados."""
 
-        start: datetime = datetime.now()
+        def td_fmt(secs: float|int) -> str:
+            secs = round(secs, 0)
+            mins: int
+            hours: int
+            ret: str = ""
+
+            mins, secs = divmod(secs, 60)
+            hours, mins = divmod(mins, 60)
+
+            if hours:
+                ret += f"{hours:.0f} hora{'' if hours == 1 else 's'}, "
+            if mins:
+                ret += f"{mins:.0f} minuto{'' if mins == 1 else 's'}, "
+            ret += f"{secs:.0f} segundo{'' if secs == 1 else 's'}"
+
+            return ret
+
+        start: time = time()
         td: timedelta
 
         # Verificar se o usuário possui a role de admin
-        if not await check_admin_role(interaction):
-            return
-        
+        # if not await check_admin_role(interaction):
+        #     return
+
         await interaction.response.defer()
         progress_message = await interaction.followup.send("🎲 Resetando banco de dados...")
 
@@ -44,11 +62,10 @@ class InsertHistory(commands.Cog):
 
         try:
             for index, post_id in enumerate(posts_id, start=1):
-                td = datetime.now() - start
-                curr_fmt: str = f"{f'{td.min} min ' if td.min else ''}{td.seconds:.2f} seg"
+                td = time() - start
                 await progress_message.edit(
                     content=f"📄 Processando post {index} de {len(posts_id)} (ID: {post_id})\n"
-                            f"⏱️(tempo decorrido: {curr_fmt})..."
+                            f"⏱️(tempo decorrido: {td_fmt(td)})..."
                 )
                 print(f"Processando... \033[36mPost {index}\033[0m de {len(posts_id)}")
                 print("Extraindo thread...")
@@ -109,18 +126,24 @@ class InsertHistory(commands.Cog):
 
                 print(f"\033[32mPost {post_id} adicionado com sucesso ao banco.\033[0m")
 
-        except Exception as e:
+        except KeyboardInterrupt:
+            await progress_message.edit(
+                content="⌨️ Banco de dados resetado; inserção interrompida manualmente."
+            )
+        except Exception:
             await progress_message.edit(
                 content="❌ Banco de dados resetado; houve erro na inserção de dados."
             )
+            print(format_exc())
         else:
-            end: datetime = datetime.now()
-            td = end - start
-            td_fmt: str = f"{f'{td.min} min ' if td.min else ''}{td.seconds:.2f} seg"
+            td = time() - start
+
             await progress_message.edit(
                 content="✅ Banco de dados resetado e histórico inserido com sucesso!"
-                        f" concluido em {td_fmt}"
+                        f" concluido em {td_fmt(td)}"
             )
+
+            print(f"tempo total de execucao: {td}")
 
 # Função para adicionar a cog ao bot
 async def setup(client):
