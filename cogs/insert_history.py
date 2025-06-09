@@ -47,8 +47,8 @@ class InsertHistory(commands.Cog):
                 td = datetime.now() - start
                 curr_fmt: str = f"{f'{td.min} min ' if td.min else ''}{td.seconds:.2f} seg"
                 await progress_message.edit(
-                    content=f"📄 Processando post {index} de {len(posts_id)} (ID: {post_id})"
-                            f"⏱️\n(tempo decorrido: {curr_fmt})..."
+                    content=f"📄 Processando post {index} de {len(posts_id)} (ID: {post_id})\n"
+                            f"⏱️(tempo decorrido: {curr_fmt})..."
                 )
                 print(f"Processando... \033[36mPost {index}\033[0m de {len(posts_id)}")
                 print("Extraindo thread...")
