@@ -33,10 +33,11 @@ class InsertHistory(commands.Cog):
             hours, mins = divmod(mins, 60)
 
             if hours:
-                ret += f"{hours:.0f} hora{'' if hours == 1 else 's'}, "
+                ret += f"{hours} hora{'' if hours == 1 else 's'}, "
             if mins:
-                ret += f"{mins:.0f} minuto{'' if mins == 1 else 's'}, "
-            ret += f"{secs:.0f} segundo{'' if secs == 1 else 's'}"
+                ret += f"{mins} minuto{'' if mins == 1 else 's'}, "
+            if secs:
+                ret += f"{secs} segundo{'' if secs == 1 else 's'}"
 
             return ret
 
@@ -44,8 +45,8 @@ class InsertHistory(commands.Cog):
         td: timedelta
 
         # Verificar se o usuário possui a role de admin
-        # if not await check_admin_role(interaction):
-        #     return
+        if not await check_admin_role(interaction):
+            return
 
         await interaction.response.defer()
         progress_message = await interaction.followup.send("🎲 Resetando banco de dados...")
