@@ -20,26 +20,38 @@ type db_funcs_t = Callable[
     [aio.AsyncConnection, Any],
     Awaitable[bool] | Awaitable[list]]
 
-def db_nuke() -> None:
+async def db_nuke() -> None:
     """
     Recria o banco de dados. Todos os dados são perdidos.
 
     **TOME CUIDADO EXTREMO AO UTILIZAR ESSA FUNÇÃO**
     """
 
+    global ENGINE
+
     from os import name, system
+    from asyncio import sleep
 
     if name == "posix":
         CMD = "sudo -u postgres psql -U postgres -c"
     else:
         CMD = f"psql postgres://postgres:{com.PASSW}@localhost:5432/postgres -c"
 
+    if ENGINE is not None:
+        await ENGINE.dispose()
+        ENGINE.sync_engine.dispose()
+        ENGINE = None
+
+    ret = system(f"{CMD} \"REVOKE ALL PRIVILEGES ON DATABASE db_monitoring FROM monitor_admin;\"")
     ret: int = system(f"{CMD} \"DROP DATABASE db_monitoring WITH (FORCE);\"")
     ret = system(f"{CMD} \"DROP OWNED BY monitor_admin CASCADE;\"")
-    ret = system(f"{CMD} \"DROP user monitor_admin;\"")
 
-    import database.data.db_setup
+    from database.data.db_setup import eng_setup
+    eng_setup()
+    ret = system(f"{CMD} \"ALTER USER monitor_admin WITH LOGIN PASSWORD '{com.PASSW}'\"")
 
+    await sleep(1)
+    ENGINE = aio.create_async_engine(com.DATABASE_URL, pool_pre_ping=True)
 
 def connection_execute(
     db_func: db_funcs_t
@@ -129,7 +141,8 @@ async def db_new_user(
 async def db_thread_answered(
     _CONN: aio.AsyncConnection, threadID: int,
     users: set[int] | None = None,
-    semester_pair: tuple[int, int] = None
+    semester_pair: tuple[int, int] = None,
+    from_on_message: bool = False
 ) -> bool:
     """
     Checa se uma thread foi respondida.
@@ -175,8 +188,8 @@ async def db_thread_answered(
     if not users:
         users = set((await get_users_message_count_in_thread(threadID)).keys())
 
-    if ((is_old_semester and len(users) > 1)
-        or (not is_old_semester and len(users) == 2)):
+    if ((not from_on_message and len(users) > 1)
+        or (from_on_message and len(users) == 2)):
         await _CONN.execute(text(
             "UPDATE users SET questions_data.answered "
             "= (questions_data).answered + 1 "
@@ -194,7 +207,7 @@ async def db_thread_answered(
                 "SET questions_data.answered = (questions_data).answered + 1 "
                 f"WHERE subjectID = ({sub_query})"
             ))
-    
+
     semester, year = semester_pair
     semester_info: list[int] | list = (
         com.MONITORS_OLD.get(year, {}).get(semester, [])
@@ -208,12 +221,6 @@ async def db_thread_answered(
         if ((not is_old_semester and is_monitor)
             or (is_old_semester and userID in semester_info)):
             monitor_answered = True
-            # incrementa respondidas p/ monitores
-            # await _CONN.execute(text(
-            #     "UPDATE users SET monitor_data.answered "
-            #     "= (monitor_data).answered + 1 "
-            #     f"WHERE discID = {userID}"
-            # ))
 
         await _CONN.execute(text(
             "INSERT INTO user_thread (discID, threadID) VALUES "

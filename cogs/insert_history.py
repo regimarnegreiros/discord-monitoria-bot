@@ -32,7 +32,7 @@ class InsertHistory(commands.Cog):
         current_year = server["YEAR"]
         current_semester = server["SEMESTER"]
 
-        db.db_nuke() # Reseta o Banco de dados
+        await db.db_nuke() # Reseta o Banco de dados
 
         posts_id = await get_forum_posts(interaction.guild_id)
         semester, year = 0, 0

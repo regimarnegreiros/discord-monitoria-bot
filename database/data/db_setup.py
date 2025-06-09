@@ -29,26 +29,34 @@ if os.name == "posix":
     
     del SHUTUP, hba_line_new, hba_line_old, hba_file
 
-os.system(CMD + "\"CREATE USER monitor_admin"
-          f" WITH ENCRYPTED PASSWORD '{com.PASSW}';\"")
-os.system(CMD + "\"CREATE DATABASE db_monitoring;\"")
+def eng_setup() -> None:
+    exit_code: int = 0
+    exit_code = os.system(CMD + "\"CREATE USER monitor_admin"
+              f" WITH LOGIN PASSWORD '{com.PASSW}';\"")
+    print(f"user: {exit_code}", end="; ")
+    exit_code = os.system(CMD + "\"CREATE DATABASE db_monitoring;\"")
+    print(f"db: {exit_code}", end="; ")
 
-# GRANTS
-os.system(CMD + "\"ALTER DATABASE db_monitoring OWNER TO monitor_admin;\"")
-os.system(CMD + "\"GRANT ALL PRIVILEGES ON DATABASE db_monitoring"
-                " TO monitor_admin WITH GRANT OPTION;\"")
-os.system(CMD + "\"GRANT ALL PRIVILEGES ON SCHEMA public"
-                " TO monitor_admin;\"")
-os.system(CMD + "\"GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public"
-                " TO monitor_admin;\"")
-os.system(CMD + "\"GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public"
-                " TO monitor_admin;\"")
+    # GRANTS
+    exit_code = os.system(CMD + "\"ALTER DATABASE db_monitoring OWNER TO monitor_admin;\"")
+    exit_code = os.system(CMD + "\"GRANT ALL PRIVILEGES ON DATABASE db_monitoring"
+                    " TO monitor_admin WITH GRANT OPTION;\"")
+    exit_code = os.system(CMD + "\"GRANT ALL PRIVILEGES ON SCHEMA public"
+                    " TO monitor_admin;\"")
+    exit_code = os.system(CMD + "\"GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public"
+                    " TO monitor_admin;\"")
+    exit_code = os.system(CMD + "\"GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public"
+                    " TO monitor_admin;\"")
+    print(f"grants: {exit_code}")
 
-DATABASE_URL = com.DATABASE_URL.replace("asyncpg", "psycopg2")
-engine: sql.Engine = sql.create_engine(DATABASE_URL)
-with engine.connect() as con:
-    for file in com.files:
-        with open(file, encoding="utf-8") as query:
-            con.execute(text(query.read()))
-            con.commit()
-engine.dispose()
+    DATABASE_URL = com.DATABASE_URL.replace("asyncpg", "psycopg2")
+    engine: sql.Engine = sql.create_engine(DATABASE_URL)
+    with engine.connect() as con:
+        for file in com.files:
+            with open(file, encoding="utf-8") as query:
+                con.execute(text(query.read()))
+                con.commit()
+    engine.dispose()
+
+if __name__ == "__main__":
+    eng_setup()
