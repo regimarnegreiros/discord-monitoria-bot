@@ -23,6 +23,7 @@ class InsertHistory(commands.Cog):
         """Apaga o banco de dados e insere todo o histórico do servidor no banco de dados."""
 
         start: datetime = datetime.now()
+        td: timedelta
 
         # Verificar se o usuário possui a role de admin
         if not await check_admin_role(interaction):
@@ -43,11 +44,11 @@ class InsertHistory(commands.Cog):
 
         try:
             for index, post_id in enumerate(posts_id, start=1):
-                curr_td: timedelta = datetime.now() - start
+                td = datetime.now() - start
                 curr_fmt: str = f"{f'{td.min} min ' if td.min else ''}{td.seconds:.2f} seg"
                 await progress_message.edit(
-                    content=f"📄 Processando post {index} de {len(posts_id)} (ID: {post_id}) "
-                            f"(tempo decorrido: {curr_fmt})..."
+                    content=f"📄 Processando post {index} de {len(posts_id)} (ID: {post_id})"
+                            f"⏱️\n(tempo decorrido: {curr_fmt})..."
                 )
                 print(f"Processando... \033[36mPost {index}\033[0m de {len(posts_id)}")
                 print("Extraindo thread...")
@@ -114,7 +115,7 @@ class InsertHistory(commands.Cog):
             )
         else:
             end: datetime = datetime.now()
-            td: timedelta = end - start
+            td = end - start
             td_fmt: str = f"{f'{td.min} min ' if td.min else ''}{td.seconds:.2f} seg"
             await progress_message.edit(
                 content="✅ Banco de dados resetado e histórico inserido com sucesso!"
