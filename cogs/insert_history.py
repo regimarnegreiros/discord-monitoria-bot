@@ -10,6 +10,8 @@ from tools.json_config import get_semester_and_year, load_json
 import database.data.db_funcs as db
 from database.data.db_commons import MONITORS_OLD # a ser substituido no config.json
 from asyncio import sleep
+from datetime import datetime
+from datetime import timedelta
 
 class InsertHistory(commands.Cog):
     def __init__(self, bot):
@@ -19,6 +21,8 @@ class InsertHistory(commands.Cog):
         description="Reseta o banco de dados e insere o histórico completo do servidor. (Admin)")
     async def insert_history(self, interaction: discord.Interaction):
         """Apaga o banco de dados e insere todo o histórico do servidor no banco de dados."""
+
+        start: datetime = datetime.now()
 
         # Verificar se o usuário possui a role de admin
         if not await check_admin_role(interaction):
@@ -106,8 +110,12 @@ class InsertHistory(commands.Cog):
                 content="❌ Banco de dados resetado; houve erro na inserção de dados."
             )
         else:
+            end: datetime = datetime.now()
+            td: timedelta = end - start
+            td_fmt: str = f"{f'{td.min} min ' if td.min else ''}{td.seconds:.2f} seg"
             await progress_message.edit(
                 content="✅ Banco de dados resetado e histórico inserido com sucesso!"
+                        f" concluido em {td_fmt}"
             )
 
 # Função para adicionar a cog ao bot
