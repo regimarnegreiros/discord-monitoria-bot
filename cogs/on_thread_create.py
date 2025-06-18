@@ -17,6 +17,20 @@ class OnThreadCreate(commands.Cog):
     @commands.Cog.listener()
     async def on_thread_create(self, thread: discord.Thread):
         """Escuta o evento de criação de thread e realiza ações associadas."""
+        
+        if isinstance(thread, discord.Thread):
+            embed = discord.Embed(
+                title="📌 Dica Importante",
+                description="Quando sua dúvida for resolvida, utilize o comando `/resolvido` para marcar como concluída.",
+                color=discord.Color.blue()
+            )
+            embed.set_footer(text="Obrigado por manter a organização do servidor!")
+
+            await thread.send(
+                embed=embed,
+                silent=True,
+                mention_author=True
+            )
 
         if not await check_thread_object(thread):
             print("Thread não pertence ao servidor e canal de fórum especificados.")
