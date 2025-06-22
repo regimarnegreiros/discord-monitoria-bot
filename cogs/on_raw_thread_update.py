@@ -20,11 +20,13 @@ class OnRawThreadUpdate(commands.Cog):
             # Thread não carregada no payload (possivelmente arquivada). Ignorando.
             return
 
-        if payload.thread.archived != payload.data.get("archived", not payload.thread.archived):
-            # Mudança foi só arquivar ou desarquivar. Ignorando.
-            return
+        """ESSA PARTE ESTA SENDO ATIVADA MESMO QUANDO NAO HA (DES)ARQUIVAMENTO DA THREAD"""
+        #if payload.thread.archived != payload.data.get("archived", not payload.thread.archived):
+        #    # Mudança foi só arquivar ou desarquivar. Ignorando.
+        #    return
 
         if not await check_thread_object(payload.thread):
+            print("thread not in server/forumchannel")
             # Thread não pertence ao servidor e canal de fórum especificados.
             return
 
@@ -35,7 +37,7 @@ class OnRawThreadUpdate(commands.Cog):
         # Buscar as tags e resolução da thread no banco de dados
         await db_thread_update(payload.thread.id,
                          *[tag["id"] for tag in thread_infos["applied_tags"]])
-        
+
         # Comparar as tags (matérias) atuais da thread com as tags do banco
             # Se as tags (matérias) mudaram, atualizar as informações no banco para refletir a alteração
 

@@ -1,130 +1,181 @@
 CREATE OR REPLACE FUNCTION question_data_update() RETURNS TRIGGER AS $$
 DECLARE
     tag_solved      BIGINT := 1281071345991684238;
+    current_semester INT := (SELECT MAX(semesterID) FROM semester);
     rec             RECORD;
 BEGIN
     /* operacoes diretamente em tag_thread */
     IF (TG_OP = 'INSERT' AND TG_TABLE_NAME = 'tag_thread') THEN
         IF (NEW.tagID = tag_solved) THEN
             /* incrementa solved em materias se a tag foi aplicada */
-            FOR rec IN (SELECT t2.subjectID FROM tag_thread t1
-                        LEFT JOIN tags t2 ON t1.tagID = t2.tagID
-                        WHERE t1.threadID = NEW.threadID)
-            LOOP
-                UPDATE subjects
-                SET questions_data.solved = (questions_data).solved + 1
-                WHERE subjects.subjectID = rec.subjectID;
-            END LOOP;
-
-            /* incrementa solved em usuarios */
-            FOR rec IN (SELECT t2.discID FROM user_thread t1
-                        LEFT JOIN users t2 ON t1.discID = t2.discID
-                        WHERE t1.threadID = NEW.threadID)
-            LOOP
-                /* em questions_data para todos os participantes */
-                UPDATE users
-                SET questions_data.solved = (questions_data).solved + 1
-                WHERE users.discID = rec.discID;
-
-                /* e em monitor_data p/ monitores */
-                /* (exceto se criou a thread, pois nao agiu como monitor) */
-                UPDATE users
-                SET monitor_data.solved = (monitor_data).solved + 1
-                WHERE users.discID = rec.discID AND is_monitor = TRUE
-                AND rec.discID <> (SELECT threadCreatorID FROM thread t
-                                   WHERE t.threadID = NEW.threadID);
-            END LOOP;
+            UPDATE thread t SET is_solved = TRUE
+            WHERE t.threadID = NEW.threadID;
+            /* implementar trigger de setar solved como count */
         ELSE
-            /* incrementa total de duvidas em cada materia */
-            SELECT subjectID INTO rec FROM tags WHERE NEW.tagID = tags.tagID;
+            /* seta total de duvidas em cada materia */
+            SELECT tags.subjectID, COUNT(*) count INTO rec
+            FROM tags JOIN tag_thread tt ON tags.tagID = tt.tagID
+            LEFT JOIN thread t ON tt.threadID = t.threadID
+            WHERE tags.tagID = NEW.tagID
+            AND t.semesterID = current_semester
+            GROUP BY subjectID;
 
             UPDATE subjects
-            SET questions_data.total = (questions_data).total + 1
+            SET questions_data.total = rec.count
             WHERE subjects.subjectID = rec.subjectID;
         END IF;
+
+        CALL update_users_subjects(NEW.threadID);
 
     ELSIF (TG_OP = 'DELETE' AND TG_TABLE_NAME = 'tag_thread') THEN
         IF (OLD.tagID <> tag_solved) THEN
             /* decrementa dados de duvidas em materias */
             /* se nao foi a tag de resolvido que foi retirada */
+            SELECT tags.subjectID, COUNT (*) count INTO rec
+            FROM tags JOIN tag_thread tt ON tags.tagID = tt.tagID
+            LEFT JOIN thread t ON tt.threadID = t.threadID
+            WHERE tags.tagID = OLD.tagID
+            AND t.semesterID = current_semester
+            GROUP BY subjectID;
+
             UPDATE subjects
-            SET questions_data.solved =
-                GREATEST((questions_data).solved - 1, 0),
-            questions_data.answered =
-                GREATEST((questions_data).answered - 1, 0),
-            questions_data.total =
-                GREATEST((questions_data).total - 1, 0)
-            WHERE subjects.subjectID = (SELECT tags.subjectID FROM tags
-                                        WHERE tags.tagID = OLD.tagID);
+            SET questions_data.total = rec.count
+            WHERE subjects.subjectID = rec.subjectID;
         ELSE
             /* decrementa solved se a tag de resolvido foi retirada */
-            FOR rec IN (SELECT t2.subjectID FROM tag_thread t1
-                        LEFT JOIN tags t2 ON t1.tagID = t2.tagID
-                        WHERE t1.threadID = OLD.threadID)
-            LOOP
-                UPDATE subjects
-                SET questions_data.solved =
-                    GREATEST((questions_data).solved - 1, 0)
-                WHERE subjects.subjectID = rec.subjectID;
-            END LOOP;
-
-            FOR rec IN (SELECT t2.discID FROM user_thread t1
-                        LEFT JOIN users t2 ON t1.discID = t2.discID
-                        WHERE t1.threadID = NEW.threadID)
-            LOOP
-                /* em usuarios participantes tambem */
-                UPDATE users
-                SET questions_data.solved =
-                    GREATEST((questions_data).solved - 1, 0)
-                WHERE users.discID = rec.discID;
-
-                UPDATE users
-                SET monitor_data.solved =
-                    GREATEST((monitor_data).solved - 1, 0)
-                WHERE users.discID = rec.discID AND is_monitor = TRUE
-                AND rec.discID <> (SELECT threadCreatorID FROM thread t
-                                   WHERE t.threadID = NEW.threadID);
-            END LOOP;
+            UPDATE thread t SET is_solved = FALSE
+            WHERE t.threadID = OLD.threadID;
         END IF;
-    /*ELSIF (TG_OP = 'INSERT' AND TG_TABLE_NAME = 'thread') THEN
-        UPDATE users
-            SET questions_data.total = (users.questions_data).total + 1
-        FROM (SELECT ut.threadID, u.discID, u.questions_data
-              FROM users u JOIN user_thread ut ON u.discID = ut.discID) AS uot
-        WHERE uot.threadID = NEW.threadID;*/
+
+        CALL update_users_subjects(OLD.threadID);
+
+        RETURN OLD;
+
     ELSIF (TG_OP = 'INSERT' AND TG_TABLE_NAME = 'user_thread') THEN
         /* caso usuario tenha entrado depois em duvida resolvida */
-        IF tag_solved IN (SELECT tagID FROM tag_thread tt
-                          WHERE tt.threadID = NEW.threadID) THEN
-            SELECT threadCreatorID INTO rec
-            FROM thread WHERE threadID = NEW.threadID;
+        UPDATE users SET
+            questions_data.answered = (
+                SELECT COUNT(*) FROM user_thread ut LEFT JOIN thread t
+                ON t.threadID = ut.threadID WHERE ut.discID = NEW.discID
+                AND t.is_answered
+                AND t.semesterID = current_semester
+            ),
+            questions_data.solved = (
+                SELECT COUNT(*) FROM user_thread ut LEFT JOIN thread t
+                ON t.threadID = ut.threadID WHERE ut.discID = NEW.discID
+                AND t.is_solved
+                AND t.semesterID = current_semester
+            )
+        WHERE users.discID = NEW.discID;
 
-            UPDATE users
-            SET questions_data.solved = (questions_data).solved + 1
-            WHERE users.discID = NEW.discID
-            AND NEW.discID <> rec.threadCreatorID;
+        UPDATE users SET
+            monitor_data.answered = (
+                SELECT COUNT(*) FROM user_thread ut LEFT JOIN thread t
+                ON t.threadID = ut.threadID WHERE ut.discID = NEW.discID
+                AND t.is_answered
+                AND t.semesterID = current_semester
+            ),
+            monitor_data.solved = (
+                SELECT COUNT(*) FROM user_thread ut LEFT JOIN thread t
+                ON t.threadID = ut.threadID WHERE ut.discID = NEW.discID
+                AND t.is_solved
+                AND t.semesterID = current_semester
+            )
+        WHERE users.discID = NEW.discID AND is_monitor = TRUE
+        AND NEW.discID <> (SELECT threadCreatorID FROM thread t
+                           WHERE t.threadID = NEW.threadID);
 
-            UPDATE users
-            SET monitor_data.solved = (monitor_data).solved + 1
-            WHERE users.discID = NEW.discID AND is_monitor = TRUE
-            AND NEW.discID <> rec.threadCreatorID; 
-        END IF;
+        CALL update_users_subjects(NEW.threadID);
+
+    ELSIF (TG_OP = 'DELETE' AND TG_TABLE_NAME = 'user_thread') THEN
+        UPDATE users SET
+            questions_data.answered = (
+                SELECT COUNT(*) FROM user_thread ut LEFT JOIN thread t
+                ON t.threadID = ut.threadID WHERE ut.discID = OLD.discID
+                AND t.is_answered
+                AND t.semesterID = current_semester
+            ),
+            questions_data.solved = (
+                SELECT COUNT(*) FROM user_thread ut LEFT JOIN thread t
+                ON t.threadID = ut.threadID WHERE ut.discID = OLD.discID
+                AND t.is_solved
+                AND t.semesterID = current_semester
+            )
+        WHERE users.discID = OLD.discID;
+
+        UPDATE users SET
+            monitor_data.answered = (
+                SELECT COUNT(*) FROM user_thread ut LEFT JOIN thread t
+                ON t.threadID = ut.threadID WHERE ut.discID = OLD.discID
+                AND t.is_answered
+                AND t.semesterID = current_semester
+            ),
+            monitor_data.solved = (
+                SELECT COUNT(*) FROM user_thread ut LEFT JOIN thread t
+                ON t.threadID = ut.threadID WHERE ut.discID = OLD.discID
+                AND t.is_solved
+                AND t.semesterID = current_semester
+            )
+        WHERE users.discID = OLD.discID AND is_monitor = TRUE
+        AND OLD.discID <> (SELECT threadCreatorID FROM thread t
+                           WHERE t.threadID = OLD.threadID);
+
+        WITH user_counts AS (
+            SELECT users.discID, COUNT(*) count FROM user_thread ut
+            LEFT JOIN users ON users.discID = ut.discID
+            LEFT JOIN thread t ON ut.threadID = t.threadID
+            WHERE t.semesterID = current_semester
+            GROUP BY users.discID
+        )
+        UPDATE users
+        SET questions_data.total = (
+            SELECT COUNT(*) FROM user_thread ut LEFT JOIN thread t
+            ON t.threadID = ut.threadID WHERE ut.discID = OLD.discID
+            AND t.semesterID = current_semester
+        )
+        FROM user_counts uc
+        WHERE users.discID = OLD.discID;
+
+        CALL update_users_subjects(OLD.threadID);
+
+        RETURN OLD;
     END IF;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE TRIGGER question_data_update_tags
-AFTER INSERT OR DELETE ON tag_thread
+CREATE OR REPLACE TRIGGER question_data_update_tags_insert
+AFTER INSERT ON tag_thread
 FOR EACH ROW EXECUTE FUNCTION question_data_update();
 
-/*CREATE OR REPLACE TRIGGER question_data_update_user_insert
-AFTER INSERT ON thread
-FOR EACH ROW EXECUTE FUNCTION question_data_update();*/
+CREATE OR REPLACE TRIGGER question_data_update_tags_delete
+BEFORE DELETE ON tag_thread
+FOR EACH ROW EXECUTE FUNCTION question_data_update();
 
 CREATE OR REPLACE TRIGGER question_data_update_user_thread_insert
 AFTER INSERT ON user_thread
 FOR EACH ROW EXECUTE FUNCTION question_data_update();
+
+CREATE OR REPLACE TRIGGER question_data_update_user_thread_delete
+BEFORE DELETE ON user_thread
+FOR EACH ROW EXECUTE FUNCTION question_data_update();
+
+CREATE OR REPLACE FUNCTION answered_solved_update() RETURNS TRIGGER AS $$
+DECLARE
+    rec         RECORD;
+BEGIN
+    CALL update_users_subjects(NEW.threadID);
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER answered_solved_update
+AFTER UPDATE ON thread
+FOR EACH ROW
+/* WHEN ((OLD.is_solved IS DISTINCT FROM NEW.is_solved)
+    OR (OLD.is_answered IS DISTINCT FROM NEW.is_answered)) */
+EXECUTE FUNCTION answered_solved_update();
 
 CREATE OR REPLACE FUNCTION user_thread_init() RETURNS TRIGGER AS $$
 BEGIN
@@ -138,41 +189,6 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE TRIGGER user_thread_init
 AFTER INSERT ON thread
 FOR EACH ROW EXECUTE FUNCTION user_thread_init();
-
-/*
-CREATE OR REPLACE FUNCTION monitors_update() RETURNS TRIGGER AS $$
-DECLARE
-    current    RECORD;
-BEGIN
-    SELECT
-        floor(EXTRACT(MONTH FROM CURRENT_TIMESTAMP) / 7) + 1
-        AS semester,
-        EXTRACT(YEAR FROM CURRENT_TIMESTAMP) AS year
-    INTO current;
-
-    IF ((TG_OP = 'INSERT' AND NEW.is_monitor = TRUE)
-        OR (TG_OP = 'UPDATE' AND OLD.is_monitor = FALSE
-                             AND NEW.is_monitor = TRUE)) THEN
-        UPDATE semester
-            SET monitors = array_append(monitors, NEW.discID)
-        WHERE semester = current.semester
-          AND semester_year = current.year;
-    ELSIF (TG_OP = 'UPDATE' AND OLD.is_monitor = TRUE
-                            AND NEW.is_monitor = FALSE) THEN
-        UPDATE semester
-            SET monitors = array_remove(monitors, OLD.discID)
-        WHERE semester = current.semester
-          AND semester_year = current.year;
-    END IF;
-
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE TRIGGER monitors_update
-AFTER INSERT OR UPDATE ON users
-FOR EACH ROW EXECUTE FUNCTION monitors_update();
-*/
 
 CREATE OR REPLACE FUNCTION semester_dump() RETURNS TRIGGER AS $$
 DECLARE

@@ -13,6 +13,8 @@ from datetime import datetime
 from collections.abc import Callable, Awaitable
 from typing import Any
 from asyncpg import Record
+from asyncpg.exceptions import ForeignKeyViolationError as FKVE
+from asyncio import sleep
 
 ENGINE: aio.AsyncEngine = aio.create_async_engine(com.DATABASE_URL)
 
@@ -20,7 +22,7 @@ type db_funcs_t = Callable[
     [aio.AsyncConnection, Any],
     Awaitable[bool] | Awaitable[list]]
 
-async def db_nuke() -> None:
+async def db_nuke() -> bool:
     """
     Recria o banco de dados. Todos os dados são perdidos.
 
@@ -42,8 +44,9 @@ async def db_nuke() -> None:
         ENGINE.sync_engine.dispose()
         ENGINE = None
 
-    ret = system(f"{CMD} \"REVOKE ALL PRIVILEGES ON DATABASE db_monitoring FROM monitor_admin;\"")
-    ret: int = system(f"{CMD} \"DROP DATABASE db_monitoring WITH (FORCE);\"")
+    ret: int = system(f"{CMD} \"REVOKE ALL PRIVILEGES "
+                      "ON DATABASE db_monitoring FROM monitor_admin;\"")
+    ret = system(f"{CMD} \"DROP DATABASE db_monitoring WITH (FORCE);\"")
     ret = system(f"{CMD} \"DROP OWNED BY monitor_admin CASCADE;\"")
 
     from database.data.db_setup import eng_setup
@@ -52,6 +55,8 @@ async def db_nuke() -> None:
 
     await sleep(1)
     ENGINE = aio.create_async_engine(com.DATABASE_URL, pool_pre_ping=True)
+
+    return ret
 
 def connection_execute(
     db_func: db_funcs_t
@@ -160,23 +165,21 @@ async def db_thread_answered(
     userID: int
     user: disc.Member | None
     old_users: set[int] | list[tuple[int]]
-    tags: tuple[int]
-    tag: int
     semester: int
     year: int
-    is_solved: bool
-
-    thread_info: dict = await get_thread_infos(threadID)
-    is_solved, tags = com.tag_reorder(
-        *[tag["id"] for tag in thread_info["applied_tags"]]
-    )
+    semester_pair: tuple[int, int]
     monitor_answered: bool = False
 
     server_info: dict = load_json()[str(get_first_server_id())]
     current_pair: tuple[int, int] = (
         server_info["SEMESTER"], server_info["YEAR"]
     )
-    semester_pair: tuple[int, int] = tuple(sorted(semester_pair))
+
+    if not semester_pair:
+        semester_pair = current_pair
+    else:
+        semester_pair = tuple(sorted(semester_pair))
+
     is_old_semester: bool = current_pair != semester_pair
 
     old_users = (await _CONN.execute(text(
@@ -187,26 +190,11 @@ async def db_thread_answered(
 
     if not users:
         users = set((await get_users_message_count_in_thread(threadID)).keys())
-
-    if ((not from_on_message and len(users) > 1)
-        or (from_on_message and len(users) == 2)):
+    
+    if len(users) >= 2:
         await _CONN.execute(text(
-            "UPDATE users SET questions_data.answered "
-            "= (questions_data).answered + 1 "
-            f"WHERE discID = {thread_info['owner_id']}"
+            f"UPDATE thread SET is_answered = TRUE WHERE threadID = {threadID}"
         ))
-
-        iter_tags: tuple[int] = tags if not is_solved else tags[:-1]
-
-        for tag in iter_tags:
-            sub_query: str = (
-                f"SELECT subjectID FROM tags WHERE tagID = {tag}"
-            )
-            await _CONN.execute(text(
-                "UPDATE subjects "
-                "SET questions_data.answered = (questions_data).answered + 1 "
-                f"WHERE subjectID = ({sub_query})"
-            ))
 
     semester, year = semester_pair
     semester_info: list[int] | list = (
@@ -227,12 +215,6 @@ async def db_thread_answered(
             f"({userID}, {threadID})"
         ))
 
-        await _CONN.execute(text(
-            "UPDATE users SET questions_data.answered "
-            "= (questions_data).answered + 1 "
-            f"WHERE discID = {userID}"
-        ))
-
     return monitor_answered
 
 @connection_execute
@@ -248,11 +230,8 @@ async def db_new_semester(
 
     if (semester, year) == (None, None):
         current: dict[str, int] = com.get_semester()
+        (semester, year) = (current["semester"], current["year"])
 
-        await _CONN.execute(text(
-            "INSERT INTO semester (semester_year, semester) VALUES"
-            f"({current['year']}, {current['semester']})"
-        ))
     elif semester not in range(1, 3) or year < 2023:
         raise ValueError("invalid semester or year")
 
@@ -321,27 +300,33 @@ async def db_thread_update(
     ))
     _, tagIDs = com.tag_reorder(*tagIDs)
 
-
-    db_tags: list[sql.Row] = [row[0] for row in select.fetchall()]
+    db_tags: list[int] = [row[0] for row in select.fetchall()]
 
     if set(tagIDs) != set(db_tags):
         # tags fora do banco
         for tag in set(tagIDs) - set(db_tags):
-            res: sql.CursorResult = await _CONN.execute(text(
-                "INSERT INTO tag_thread (threadID, tagID) VALUES"
-                f"({threadID}, {tag})"
-            ))
-            if res.rowcount != len(set(tagIDs) - set(db_tags)):
-                ret_val = False
+            try:
+                res: sql.CursorResult = await _CONN.execute(text(
+                    "INSERT INTO tag_thread (threadID, tagID) VALUES"
+                    f"({threadID}, {tag})"
+                ))
+                if res.rowcount != len(set(tagIDs) - set(db_tags)):
+                    ret_val = False
+            except FKVE as e:
+                continue
 
         # tags no banco a serem deletadas
         for tag in set(db_tags) - set(tagIDs):
-            res: sql.CursorResult = await _CONN.execute(text(
-                f"DELETE FROM tag_thread WHERE tagID = {tag}"
-            ))
-            if res.rowcount != len(set(db_tags) - set(tagIDs)):
-                ret_val = False
-    
+            try:
+                res: sql.CursorResult = await _CONN.execute(text(
+                    f"DELETE FROM tag_thread WHERE tagID = {tag} "
+                    f"AND threadID = {threadID}"
+                ))
+                if res.rowcount != len(set(db_tags) - set(tagIDs)):
+                    ret_val = False
+            except FKVE as e:
+                continue
+
     return ret_val
 
 @connection_execute
@@ -393,9 +378,12 @@ async def db_thread_create(
         return False
 
     thread_insert: sql.CursorResult = await _CONN.execute(text(
-        "INSERT INTO thread (threadID, threadCreatorID, creationDate)"
-        f" VALUES ({threadID}, {creatorID}, {ts_fmt})"
+        "INSERT INTO thread"
+        f" VALUES ({threadID}, {creatorID}, {ts_fmt}, "
+        "FALSE, FALSE, (SELECT MAX(semesterID) FROM semester))"
     ))
+
+    await _CONN.commit()
 
     if thread_insert.rowcount == 0:
         res = False

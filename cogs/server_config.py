@@ -20,7 +20,7 @@ class ServerConfig(commands.GroupCog, name="configurar"):
     ):
         if not await check_admin_role(interaction):
             return
-        
+
         update_server(interaction.guild.id, monitor_role_id=monitor_role.id)
         await interaction.response.send_message(f"✅ Cargo de monitor definido para {monitor_role.mention}.", ephemeral=True)
 
@@ -35,7 +35,7 @@ class ServerConfig(commands.GroupCog, name="configurar"):
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message("Você não tem permissão para usar este comando.", ephemeral=True)
             return
-        
+
         update_server(interaction.guild.id, admin_role_id=admin_role.id)
         await interaction.response.send_message(f"✅ Cargo de administrador definido para {admin_role.mention}.", ephemeral=True)
 
@@ -49,7 +49,7 @@ class ServerConfig(commands.GroupCog, name="configurar"):
     ):
         if not await check_admin_role(interaction):
             return
-        
+
         update_server(interaction.guild.id, forum_channel_id=forum_channel.id)
         await interaction.response.send_message(f"✅ Canal de fórum definido para {forum_channel.mention}.", ephemeral=True)
 
@@ -63,7 +63,7 @@ class ServerConfig(commands.GroupCog, name="configurar"):
     ):
         if not await check_admin_role(interaction):
             return
-        
+
         update_server(interaction.guild.id, solved_tag_id=int(solved_tag))
         await interaction.response.send_message("✅ Tag de resolvido atualizada com sucesso.", ephemeral=True)
 
@@ -72,7 +72,7 @@ class ServerConfig(commands.GroupCog, name="configurar"):
         config_data = load_json()
         server_config = config_data.get(str(interaction.guild.id), {})
         forum_id = server_config.get("FORUM_CHANNEL_ID")
-        
+
         if not forum_id:
             return []
 
@@ -102,7 +102,7 @@ class ServerConfig(commands.GroupCog, name="configurar"):
     ):
         if not await check_admin_role(interaction):
             return
-        
+
         try:
             datetime(year=2024, month=mes, day=dia)
             update_semester_dates(interaction.guild.id, semestre, dia, mes)
@@ -111,7 +111,7 @@ class ServerConfig(commands.GroupCog, name="configurar"):
             )
         except ValueError:
             await interaction.response.send_message("❌ Data inválida.", ephemeral=True)
-    
+
     # Subcomando: Ver configuraçÕes
     @app_commands.command(name="ver_configuracoes", description="Mostra as configurações atuais do servidor. (Admin)")
     async def view_config(
@@ -120,7 +120,7 @@ class ServerConfig(commands.GroupCog, name="configurar"):
     ):
         if not await check_admin_role(interaction):
             return
-        
+
         config_data = load_json()
         server_id = str(interaction.guild.id)
         config = config_data.get(server_id)

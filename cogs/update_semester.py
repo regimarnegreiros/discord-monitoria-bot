@@ -25,9 +25,9 @@ class UpdateSemester(commands.Cog):
             sem2 = config.get("SEMESTER_2_START", {"day": 15, "month": 7})
 
             current_year = now.year
-            start_1 = datetime(current_year, sem1["month"], sem1["day"], 
+            start_1 = datetime(current_year, sem1["month"], sem1["day"],
                                tzinfo=TZINFO)
-            start_2 = datetime(current_year, sem2["month"], sem2["day"], 
+            start_2 = datetime(current_year, sem2["month"], sem2["day"],
                                tzinfo=TZINFO)
 
             if now < start_1:

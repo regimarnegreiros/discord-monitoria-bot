@@ -21,21 +21,20 @@ class OnGuildRoleUpdate(commands.Cog):
             before: O membro antes da atualização.
             after: O membro após a atualização.
         """
-        
-        # Verifica se o membro ganhou ou perdeu o cargo de monitor utilizando a função check_monitor
+
+        # Verifica se o membro ganhou ou perdeu o cargo de monitor
+        # utilizando a função check_monitor
         before_monitor = await check_monitor(before)
         after_monitor = await check_monitor(after)
 
         # Se houve uma mudança no status de "monitor"
         if before_monitor != after_monitor:
             await db_monitor_update(after.id, after_monitor)
-            if after_monitor:
-                print(f"{after.nick} ganhou o cargo de monitor.")  # O membro ganhou o cargo
-                # Implementar função que adiciona o cargo de monitor do banco de dados no semestre atual 
-            else:
-                print(f"{after.nick} perdeu o cargo de monitor.")  # O membro perdeu o cargo
-                # Implementar função que remove o cargo de monitor do banco de dados no semestre atual
 
+            if after_monitor:
+                print(f"{after.nick} ganhou o cargo de monitor.")
+            else:
+                print(f"{after.nick} perdeu o cargo de monitor.")
 
 async def setup(client):
     await client.add_cog(OnGuildRoleUpdate(client))

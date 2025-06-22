@@ -17,7 +17,7 @@ class OnThreadCreate(commands.Cog):
     @commands.Cog.listener()
     async def on_thread_create(self, thread: discord.Thread):
         """Escuta o evento de criação de thread e realiza ações associadas."""
-        
+
         if isinstance(thread, discord.Thread):
             embed = discord.Embed(
                 title="📌 Dica Importante",

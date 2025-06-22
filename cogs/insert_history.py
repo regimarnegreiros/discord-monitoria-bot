@@ -18,7 +18,7 @@ class InsertHistory(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @app_commands.command(name="inserir_histórico", 
+    @app_commands.command(name="inserir_histórico",
         description="Reseta o banco de dados e insere o histórico completo do servidor. (Admin)")
     async def insert_history(self, interaction: discord.Interaction):
         """Apaga o banco de dados e insere todo o histórico do servidor no banco de dados."""
@@ -33,11 +33,11 @@ class InsertHistory(commands.Cog):
             hours, mins = divmod(mins, 60)
 
             if hours:
-                ret += f"{hours} hora{'' if hours == 1 else 's'}, "
+                ret += f"{hours:.0f} hora{'' if hours == 1 else 's'}, "
             if mins:
-                ret += f"{mins} minuto{'' if mins == 1 else 's'}, "
+                ret += f"{mins:.0f} minuto{'' if mins == 1 else 's'}, "
             if secs:
-                ret += f"{secs} segundo{'' if secs == 1 else 's'}"
+                ret += f"{secs:.0f} segundo{'' if secs == 1 else 's'}"
 
             return ret
 
@@ -45,8 +45,8 @@ class InsertHistory(commands.Cog):
         td: timedelta
 
         # Verificar se o usuário possui a role de admin
-        if not await check_admin_role(interaction):
-            return
+        # if not await check_admin_role(interaction):
+        #     return
 
         await interaction.response.defer()
         progress_message = await interaction.followup.send("🎲 Resetando banco de dados...")

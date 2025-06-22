@@ -16,27 +16,32 @@ class OnMessage(commands.Cog):
     async def on_message(self, message: discord.Message):
         """Escuta o evento de criação de mensagem e realiza ações associadas."""
 
-        if not message.thread:
+        if message.author.bot:
             return
 
-        thread = message.thread
-        if not await check_thread_object(thread):
+        channel = message.channel
+        member_id: int = message.author.id
+
+        if (isinstance(channel, discord.Thread)
+            and isinstance(channel.parent, discord.ForumChannel)):
+            thread = channel
+            if not await check_thread_object(channel):
+                return
+        else:
             return
 
         if message.author == thread.owner:
             print(f"Usuário {message.author} é o criador da thread.")
-            # Colocar aqui a lógica específica para quando o usuário for o criador da thread.
             return
         else:
             is_monitor = await check_monitor(message.author)
 
             # Verificar se o membro que enviou a mensagem é um monitor
             if is_monitor:
-                member_id = message.author.id
-                print(f"Usuário monitor identificado: {message.author} (ID: {member_id})")
+                print("Usuário monitor identificado: "
+                      f"{message.author} (ID: {member_id})")
             else:
                 print(f"Usuário {message.author} não é monitor.")
-                # Aqui você pode colocar o ID no banco ou realizar outras ações não for monitor
 
             await db_new_user(member_id, is_creator=False, is_monitor=is_monitor)
 
