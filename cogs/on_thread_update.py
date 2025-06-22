@@ -5,7 +5,7 @@ from forum_functions.get_thread_infos import get_thread_infos
 from tools.checks import check_thread_object
 from database.data.db_funcs import db_thread_update
 
-class OnRawThreadUpdate(commands.Cog):
+class OnThreadUpdate(commands.Cog):
     """Classe que lida com eventos relacionados à atualização de threads."""
 
     def __init__(self, client):
@@ -13,29 +13,27 @@ class OnRawThreadUpdate(commands.Cog):
         super().__init__()
 
     @commands.Cog.listener()
-    async def on_raw_thread_update(self, payload: discord.RawThreadUpdateEvent):
+    async def on_thread_update(self, before: discord.Thread, after: discord.Thread):
         """Escuta o evento de atualização de thread e realiza ações associadas."""
 
-        if payload.thread is None:
-            # Thread não carregada no payload (possivelmente arquivada). Ignorando.
+        # Verificando se a thread foi arquivada ou desarquivada
+        print(f"Before: {before.archived}\nAfter: {after.archived}")
+        if before.archived != after.archived:
+            # A mudança não foi relacionada a arquivar ou desarquivar, portanto, ignorar.
+            print("foi arquivada ou desarquivada, portanto, ignorar.")
             return
-
-        """ESSA PARTE ESTA SENDO ATIVADA MESMO QUANDO NAO HA (DES)ARQUIVAMENTO DA THREAD"""
-        #if payload.thread.archived != payload.data.get("archived", not payload.thread.archived):
-        #    # Mudança foi só arquivar ou desarquivar. Ignorando.
-        #    return
-
-        if not await check_thread_object(payload.thread):
+        print("Passou do if before.archived != after.archived")
+        if not await check_thread_object(after):
             print("thread not in server/forumchannel")
             # Thread não pertence ao servidor e canal de fórum especificados.
             return
 
         # Obter informações atuais da thread no Discord
-        thread_infos = await get_thread_infos(payload.thread)
+        thread_infos = await get_thread_infos(after)
         print(f"Novas informações da thread:\n{thread_infos}")
 
         # Buscar as tags e resolução da thread no banco de dados
-        await db_thread_update(payload.thread.id,
+        await db_thread_update(after.id,
                          *[tag["id"] for tag in thread_infos["applied_tags"]])
 
         # Comparar as tags (matérias) atuais da thread com as tags do banco
@@ -47,4 +45,4 @@ class OnRawThreadUpdate(commands.Cog):
 
 
 async def setup(client):
-    await client.add_cog(OnRawThreadUpdate(client))
+    await client.add_cog(OnThreadUpdate(client))
