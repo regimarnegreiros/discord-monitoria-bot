@@ -17,14 +17,10 @@ class OnThreadUpdate(commands.Cog):
         """Escuta o evento de atualização de thread e realiza ações associadas."""
 
         # Verificando se a thread foi arquivada ou desarquivada
-        print(f"Before: {before.archived}\nAfter: {after.archived}")
         if before.archived != after.archived:
             # A mudança não foi relacionada a arquivar ou desarquivar, portanto, ignorar.
-            print("foi arquivada ou desarquivada, portanto, ignorar.")
             return
-        print("Passou do if before.archived != after.archived")
         if not await check_thread_object(after):
-            print("thread not in server/forumchannel")
             # Thread não pertence ao servidor e canal de fórum especificados.
             return
 

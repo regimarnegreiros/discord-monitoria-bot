@@ -31,7 +31,7 @@ BEGIN
         IF (OLD.tagID <> tag_solved) THEN
             /* decrementa dados de duvidas em materias */
             /* se nao foi a tag de resolvido que foi retirada */
-            SELECT tags.subjectID, COUNT (*) count INTO rec
+            /* SELECT tags.subjectID, COUNT (*) count INTO rec
             FROM tags JOIN tag_thread tt ON tags.tagID = tt.tagID
             LEFT JOIN thread t ON tt.threadID = t.threadID
             WHERE tags.tagID = OLD.tagID
@@ -40,7 +40,36 @@ BEGIN
 
             UPDATE subjects
             SET questions_data.total = rec.count
-            WHERE subjects.subjectID = rec.subjectID;
+            WHERE subjects.subjectID = rec.subjectID; */
+            SELECT tags.subjectID INTO rec
+            FROM tags
+            WHERE tags.tagID = OLD.tagID;
+
+            IF rec.subjectID IS NOT NULL THEN
+                UPDATE subjects
+                SET questions_data.total = (
+                    SELECT COUNT(*) FROM tag_thread tt
+                    LEFT JOIN thread t ON tt.threadID = t.threadID
+                    WHERE tt.tagID = OLD.tagID
+                    AND t.semesterID = current_semester
+                ),
+                questions_data.answered = (
+                    SELECT COUNT(*) FROM tag_thread tt
+                    LEFT JOIN thread t ON tt.threadID = t.threadID
+                    WHERE tt.tagID = OLD.tagID
+                    AND t.is_answered
+                    AND t.semesterID = current_semester
+                ),
+                questions_data.solved = (
+                    SELECT COUNT(*) FROM tag_thread tt
+                    LEFT JOIN thread t ON tt.threadID = t.threadID
+                    WHERE tt.tagID = OLD.tagID
+                    AND t.is_solved
+                    AND t.semesterID = current_semester
+                )
+                WHERE subjects.subjectID = rec.subjectID;
+            END IF;
+
         ELSE
             /* decrementa solved se a tag de resolvido foi retirada */
             UPDATE thread t SET is_solved = FALSE
@@ -164,8 +193,16 @@ CREATE OR REPLACE FUNCTION answered_solved_update() RETURNS TRIGGER AS $$
 DECLARE
     rec         RECORD;
 BEGIN
-    CALL update_users_subjects(NEW.threadID);
+    IF (TG_OP = 'UPDATE') THEN
+        CALL update_users_subjects(NEW.threadID);
+    ELSE
+        UPDATE thread t SET
+        is_solved = FALSE, is_answered = FALSE
+        WHERE t.threadID = OLD.threadID;
 
+        RETURN OLD;
+
+    END IF;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -176,6 +213,10 @@ FOR EACH ROW
 /* WHEN ((OLD.is_solved IS DISTINCT FROM NEW.is_solved)
     OR (OLD.is_answered IS DISTINCT FROM NEW.is_answered)) */
 EXECUTE FUNCTION answered_solved_update();
+
+CREATE OR REPLACE TRIGGER answered_solved_delete
+AFTER DELETE ON thread
+FOR EACH ROW EXECUTE FUNCTION answered_solved_update();
 
 CREATE OR REPLACE FUNCTION user_thread_init() RETURNS TRIGGER AS $$
 BEGIN
