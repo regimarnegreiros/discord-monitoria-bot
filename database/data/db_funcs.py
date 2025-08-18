@@ -14,7 +14,7 @@ from collections.abc import Callable, Awaitable
 from typing import Any
 from asyncpg import Record
 from asyncpg.exceptions import ForeignKeyViolationError as FKVE
-from asyncio import sleep
+from json import dumps as j_dumps
 
 ENGINE: aio.AsyncEngine = aio.create_async_engine(com.DATABASE_URL)
 
@@ -190,7 +190,7 @@ async def db_thread_answered(
 
     if not users:
         users = set((await get_users_message_count_in_thread(threadID)).keys())
-    
+
     if len(users) >= 2:
         await _CONN.execute(text(
             f"UPDATE thread SET is_answered = TRUE WHERE threadID = {threadID}"
@@ -655,3 +655,45 @@ async def db_user_info(_CONN, userID):
     return (await _CONN.execute(text(
         f"SELECT * from users where discID = {userID}"
     ))).fetchall()
+
+@connection_execute
+async def db_modify_monitor_semester(
+    _CONN: aio.AsyncConnection,
+    userID: int,
+    is_monitor: bool,
+    semester: int,
+    year: int
+) -> None:
+    search_index: int
+    search_user: dict
+    user_data: list[dict]
+
+    try:
+        user_data = ((await _CONN.execute(text(
+        "SELECT user_data FROM semester "
+        f"WHERE semester_year = {year} AND semester = {semester}"
+    ))).fetchall())[0][0]
+    except IndexError:
+        print("semester not found")
+        return
+
+    for (index, user) in enumerate(user_data):
+        if user["discID"] == userID:
+            search_index = index
+            search_user = user
+            break
+
+    if not search_user["is_monitor"] and is_monitor:
+        search_user["monitor_data"] = {
+            "total": 0,
+            "answered": 0,
+            "solved": 0
+        }
+
+    search_user["is_monitor"] = is_monitor
+    user_data[search_index] = search_user
+
+    await _CONN.execute(text(
+        f"UPDATE semester SET user_data = '{j_dumps(user_data)}'::json "
+        f"WHERE semester_year = {year} AND semester = {semester}"
+    ))
