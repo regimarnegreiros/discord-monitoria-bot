@@ -683,7 +683,8 @@ async def db_modify_monitor_semester(
             search_user = user
             break
 
-    if not search_user["is_monitor"] and is_monitor:
+    if (not search_user["is_monitor"]
+        and not search_user["monitor_data"] and is_monitor):
         search_user["monitor_data"] = {
             "total": 0,
             "answered": 0,
