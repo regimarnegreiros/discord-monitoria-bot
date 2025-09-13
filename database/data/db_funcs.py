@@ -345,6 +345,10 @@ async def db_thread_create(
 
     ts_fmt: str
     new_user: disc.Member | None = com.user_id_to_member(creatorID)
+
+    if not new_user:
+        return False
+
     is_monitor: bool = await check_monitor(new_user)
 
     if not (isinstance(timestamp, datetime)
@@ -684,7 +688,8 @@ async def db_modify_monitor_semester(
             break
 
     if (not search_user["is_monitor"]
-        and not search_user["monitor_data"] and is_monitor):
+        and not search_user["monitor_data"]
+        and is_monitor):
         search_user["monitor_data"] = {
             "total": 0,
             "answered": 0,
